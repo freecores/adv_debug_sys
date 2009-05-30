@@ -1,6 +1,7 @@
 #ifndef _BSDL_H_
 #define _BSDL_H_
 
+#include <stdint.h>
 
 // Used by lower levels.
 // should not be used by higher levels (i.e. anything that calls

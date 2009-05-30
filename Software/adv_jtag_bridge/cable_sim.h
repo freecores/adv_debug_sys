@@ -2,6 +2,7 @@
 #ifndef _CABLE_SIM_H_
 #define _CABLE_SIM_H_
 
+#include <stdint.h>
 
 int cable_rtl_sim_init();
 int cable_rtl_sim_out(uint8_t value);

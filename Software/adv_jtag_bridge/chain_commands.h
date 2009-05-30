@@ -1,10 +1,10 @@
 #ifndef _CHAIN_COMMANDS_H_
 #define _CHAIN_COMMANDS_H_
 
-#include <sys/types.h>  // for uint32_t
+#include <stdint.h>  // for uint32_t
 
 // Discover devices on JTAG chain
-int jtag_enumerate_chain(unsigned long **id_array, int *num_devices);
+int jtag_enumerate_chain(uint32_t **id_array, int *num_devices);
 
 // Functions to set configuration for the JTAG chain
 void config_set_IR_size(int size);

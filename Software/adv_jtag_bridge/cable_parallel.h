@@ -2,6 +2,8 @@
 #ifndef _CABLE_PARALLEL_H_
 #define _CABLE_PARALLEL_H_
 
+#include <stdint.h>
+
 
 int cable_parallel_init();
 int cable_parallel_opt(int c, char *str);

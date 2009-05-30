@@ -2,6 +2,7 @@
 #ifndef _CABLE_USBBLASTER_H_
 #define _CABLE_USBBLASTER_H_
 
+#include <stdint.h>
 
 int cable_usbblaster_init();
 int cable_usbblaster_out(uint8_t value);

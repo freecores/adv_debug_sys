@@ -2,6 +2,8 @@
 #ifndef _CABLE_COMMON_H_
 #define _CABLE_COMMON_H_
 
+#include <stdint.h>
+
 // Defines to use in the 'packet' args of cable_write_bit()
 // and cable_read_write_bit().  Note that while TRST is 
 // active low for JTAG hardware, here the TRST bit

@@ -2,6 +2,8 @@
 #ifndef _CABLE_XPC_DLC9_H_
 #define _CABLE_XPC_DLC9_H_
 
+#include <stdint.h>
+
 int cable_xpcusb_init();
 int cable_xpcusb_out(uint8_t value);
 int cable_xpcusb_inout(uint8_t value, uint8_t *inval);
