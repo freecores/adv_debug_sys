@@ -28,7 +28,7 @@
 #include <stdlib.h>  // for exit()
 
 #include "or32_selftest.h"
-#include "chain_commands.h"
+#include "dbg_api.h"
 #include "errcodes.h"
 
 

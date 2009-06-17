@@ -151,15 +151,27 @@ void configure_chain(void)
 	name = name_not_found;
 	irlen = -1;
       }
-      printf("%d: \t%s \t0x%08lX \t%d\n", i, name, idcodes[i], irlen);
+      printf("%d: \t%s \t0x%08X \t%d\n", i, name, idcodes[i], irlen);
     }
   printf("\n");
+
+#ifdef __LEGACY__
+// The legacy debug interface cannot support multi-device chains.  If there is more than
+// one device on this chain, pull the cord.
+if(num_devices > 1) {
+	fprintf(stderr, "\n*** ERROR: The legacy debug hardware cannot support JTAG chains with\n");
+	fprintf(stderr, "*** more than one device.  Reconnect the JTAG cable to ONLY the legacy\n");
+	fprintf(stderr, "*** debug unit, or change your SoC to use the Advanced Debug Unit.\n");
+	exit(0);
+}
+#endif
+
 
   if(target_dev_pos >= num_devices) {
     printf("ERROR:  Requested target device (%i) beyond highest device index (%i).\n", target_dev_pos, num_devices-1);
     exit(1);
   } else {
-    printf("Target device %i, JTAG ID = 0x%08lx\n", target_dev_pos, idcodes[target_dev_pos]);
+    printf("Target device %i, JTAG ID = 0x%08x\n", target_dev_pos, idcodes[target_dev_pos]);
   }
 
   manuf_id = (idcodes[target_dev_pos] >> 1) & 0x7FF;
@@ -234,7 +246,7 @@ void configure_chain(void)
        if(id_read == idcodes[target_dev_pos]) {
 	 printf("IDCODE sanity test passed, chain OK!\n");
        } else {
-	 printf("Warning: IDCODE sanity test failed.  Read IDCODE 0x%08lX, expected 0x%08lX\n", id_read, idcodes[target_dev_pos]);
+	 printf("Warning: IDCODE sanity test failed.  Read IDCODE 0x%08X, expected 0x%08X\n", id_read, idcodes[target_dev_pos]);
        }
      }
 
@@ -247,7 +259,12 @@ void configure_chain(void)
 
 void print_usage(char *func)
 {
-  printf("JTAG connection between GDB and the Advanced Debug Interface.\n");
+  printf("JTAG connection between GDB and the SoC debug interface.\n");
+#ifdef __LEGACY__
+  printf("Compiled with support for the Legacy debug unit (debug_if).\n");
+#else
+  printf("Compiled with support for the Advanced Debug Interface (adv_dbg_if).\n");
+#endif
   printf("Copyright (C) 2008 Nathan Yawn, nathan.yawn@opencores.org\n\n");
   printf("Usage: %s (options) [cable] (cable options)\n", func);
   printf("Options:\n");
@@ -485,7 +502,7 @@ uint32_t get_debug_cmd(int devidx)
   }
 
   if(retval == TAP_CMD_INVALID) {
-    printf("ERROR!  Unable to find DEBUG command for device index %i, device ID 0x%0lX\n", devidx, idcodes[devidx]);
+    printf("ERROR!  Unable to find DEBUG command for device index %i, device ID 0x%0X\n", devidx, idcodes[devidx]);
   }
 
   return retval;

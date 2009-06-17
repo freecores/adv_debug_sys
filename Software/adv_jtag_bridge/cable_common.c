@@ -32,7 +32,7 @@
 
 #define debug(...)   //fprintf(stderr, __VA_ARGS__ )
 
-static struct jtag_cable {  // 'static' keyword hides this from other files
+static struct jtag_cable {
   const char *name;
   int (*inout_func)(uint8_t, uint8_t *);
   int (*out_func)(uint8_t);
@@ -172,7 +172,7 @@ void cable_print_help()
   for(i = 0; jtag_cables[i].name; i++) {
     if(i)
       printf(", ");
-    printf(jtag_cables[i].name);
+    printf("%s", jtag_cables[i].name);
   }
 
   printf("\n\nOptions availible for the cables:\n");

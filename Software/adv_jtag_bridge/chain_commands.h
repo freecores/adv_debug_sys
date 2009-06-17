@@ -1,10 +1,20 @@
 #ifndef _CHAIN_COMMANDS_H_
 #define _CHAIN_COMMANDS_H_
 
-#include <stdint.h>  // for uint32_t
+#include <stdint.h>
+
+// These two are used by both debug modules
+extern int current_chain;
+extern int desired_chain;
+
+// These are needed by the advanced debug module
+extern int global_DR_prefix_bits;
+extern int global_DR_postfix_bits;
+extern unsigned char global_xilinx_bscan;
 
 // Discover devices on JTAG chain
 int jtag_enumerate_chain(uint32_t **id_array, int *num_devices);
+int jtag_get_idcode(uint32_t cmd, uint32_t *idcode);
 
 // Functions to set configuration for the JTAG chain
 void config_set_IR_size(int size);
@@ -22,30 +32,18 @@ void config_set_xilinx_bscan(unsigned char enable);
 int tap_reset(void);
 int tap_enable_debug_module(void);
 int tap_set_ir(int ir);
+int tap_set_shift_dr(void);
+int tap_exit_to_idle(void);
 
-// JTAG operations
-int jtag_get_idcode(uint32_t cmd, uint32_t *idcode);
+// Functions to Send/receive bitstreams via JTAG
+// These functions are aware of other devices in the chain, and may adjust for them.
+int jtag_write_bit(uint8_t packet);
+int jtag_read_write_bit(uint8_t packet, uint8_t *in_bit);
+int jtag_write_stream(uint32_t *out_data, int length_bits, unsigned char set_TMS);
+int jtag_read_write_stream(uint32_t *out_data, uint32_t *in_data, int length_bits, 
+			   unsigned char adjust, unsigned char set_TMS);
 
-// API for GDB
-int dbg_wb_read32(unsigned long adr, unsigned long *data);
-int dbg_wb_write32(unsigned long adr, unsigned long data);
-int dbg_wb_write16(unsigned long adr, uint16_t data);
-int dbg_wb_write8(unsigned long adr, uint8_t data);
-int dbg_wb_read_block32(unsigned long adr, unsigned long *data, int len);
-int dbg_wb_read_block16(unsigned long adr, uint16_t *data, int len);
-int dbg_wb_read_block8(unsigned long adr, uint8_t *data, int len);
-int dbg_wb_write_block32(unsigned long adr, unsigned long *data, int len);
-int dbg_wb_write_block16(unsigned long adr, uint16_t *data, int len);
-int dbg_wb_write_block8(unsigned long adr, uint8_t *data, int len);
-int dbg_cpu0_read(unsigned long adr, unsigned long *data);
-int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count);
-int dbg_cpu0_write(unsigned long adr, unsigned long data);
-int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count);
-int dbg_cpu0_write_ctrl(unsigned long adr, unsigned char data);
-int dbg_cpu0_read_ctrl(unsigned long adr, unsigned char *data);
-//int dbg_cpu1_read(unsigned long adr, unsigned long *data);
-//int dbg_cpu1_write(unsigned long adr, unsigned long data);
-//int dbg_cpu1_write_reg(unsigned long adr, unsigned char data);
-//int dbg_cpu1_read_ctrl(unsigned long adr, unsigned char *data);
+int retry_do(void);
+void retry_ok(void);
 
 #endif

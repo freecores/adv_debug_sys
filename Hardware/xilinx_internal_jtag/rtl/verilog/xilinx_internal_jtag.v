@@ -47,6 +47,9 @@
 // CVS Revision History
 //
 // $Log: xilinx_internal_jtag.v,v $
+// Revision 1.3  2009/06/16 02:54:23  Nathan
+// Changed some signal names for better consistency between different hardware modules.
+//
 // Revision 1.2  2009/05/17 20:54:16  Nathan
 // Changed email address to opencores.org
 //
@@ -81,8 +84,8 @@
 
 module xilinx_internal_jtag (
 	tck_o,
-	debug_tdi_i,
-	tdo_o,
+	debug_tdo_i,
+	tdi_o,
 	test_logic_reset_o,
 	run_test_idle_o,
 	shift_dr_o,
@@ -96,9 +99,9 @@ module xilinx_internal_jtag (
 // Only used for Virtex 4/5 devices
 parameter virtex_jtag_chain = 1;
 
-input debug_tdi_i;
+input debug_tdo_i;
 output tck_o;
-output tdo_o;
+output tdi_o;
 output test_logic_reset_o;
 output run_test_idle_o;
 output shift_dr_o;
@@ -107,10 +110,10 @@ output pause_dr_o;
 output update_dr_o;
 output debug_select_o;
 
-wire debug_tdi_i;
+wire debug_tdo_i;
 wire tck_o;
 wire drck;
-wire tdo_o;
+wire tdi_o;
 wire test_logic_reset_o;
 wire run_test_idle_o;
 wire shift_dr_o;
@@ -138,9 +141,9 @@ BSCAN_SPARTAN2 BSCAN_SPARTAN2_inst (
 .SEL1(debug_select_o), // USER1 active output
 .SEL2(), // USER2 active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO1(debug_tdi_i), // Data input for USER1 function
+.TDO1(debug_tdo_i), // Data input for USER1 function
 .TDO2( 1'b0 ) // Data input for USER2 function
 );
 
@@ -192,9 +195,9 @@ BSCAN_SPARTAN3 BSCAN_SPARTAN3_inst (
 .SEL1(debug_select_o), // USER1 active output
 .SEL2(), // USER2 active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO1(debug_tdi_i), // Data input for USER1 function
+.TDO1(debug_tdo_i), // Data input for USER1 function
 .TDO2(1'b0) // Data input for USER2 function
 );
 
@@ -233,10 +236,10 @@ BSCAN_SPARTAN3A BSCAN_SPARTAN3A_inst (
 .SEL2(), // USER2 active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
 .TCK(tck_o), // TCK output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .TMS(), // TMS output from TAP controller
 .UPDATE(update_dr_o), // UPDATE output from TAP controller
-.TDO1(debug_tdi_i), // Data input for USER1 function
+.TDO1(debug_tdo_i), // Data input for USER1 function
 .TDO2( 1'b0) // Data input for USER2 function
 );
 
@@ -260,9 +263,9 @@ BSCAN_VIRTEX BSCAN_VIRTEX_inst (
 .SEL1(debug_select_o), // USER1 active output
 .SEL2(), // USER2 active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO1(debug_tdi_i), // Data input for USER1 function
+.TDO1(debug_tdo_i), // Data input for USER1 function
 .TDO2( 1'b0) // Data input for USER2 function
 );
 
@@ -314,9 +317,9 @@ BSCAN_VIRTEX2 BSCAN_VIRTEX2_inst (
 .SEL1(debug_select_o), // USER1 active output
 .SEL2(), // USER2 active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO1(debug_tdi_i), // Data input for USER1 function
+.TDO1(debug_tdo_i), // Data input for USER1 function
 .TDO2( 1'b0 ) // Data input for USER2 function
 );
 
@@ -356,9 +359,9 @@ BSCAN_VIRTEX4 #(
 .RESET(test_logic_reset_o), // Reset output from TAP controller
 .SEL(debug_select_o), // USER active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO( debug_tdi_i ) // Data input for USER function
+.TDO( debug_tdo_i ) // Data input for USER function
 );
 
 assign pause_dr_o = 1'b0;
@@ -397,9 +400,9 @@ BSCAN_VIRTEX5 #(
 .RESET(test_logic_reset), // Reset output from TAP controller
 .SEL(debug_select_o), // USER active output
 .SHIFT(shift_dr_o), // SHIFT output from TAP controller
-.TDI(tdo_o), // TDI output from TAP controller
+.TDI(tdi_o), // TDI output from TAP controller
 .UPDATE(update_bscan), // UPDATE output from TAP controller
-.TDO(debug_tdi_i) // Data input for USER function
+.TDO(debug_tdo_i) // Data input for USER function
 );
 
 assign pause_dr_o = 1'b0;

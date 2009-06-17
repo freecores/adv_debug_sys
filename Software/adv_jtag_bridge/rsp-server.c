@@ -42,7 +42,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* Package includes */
 #include "except.h"
 #include "spr-defs.h"
-#include "chain_commands.h"
+#include "dbg_api.h"
 #include "errcodes.h"
 
 /* Define to log each packet */
@@ -515,7 +515,7 @@ int handle_rsp (void)
       else if(POLLIN == (fds[1].revents & POLLIN))
 	{
 	  //fprintf(stderr, "Got pipe event from monitor thread\n");
-	  read(pipe_fds[0], &bitbucket, 1);  // Clear the byte out and discard
+	  bitbucket = read(pipe_fds[0], &bitbucket, 1);  // Clear the byte out and discard
 	  /* If we have an unacknowledged exception and a client is available, tell
 	     GDB. If this exception was a trap due to a memory breakpoint, then
 	     adjust the NPC. */
@@ -733,10 +733,11 @@ rsp_client_request ()
 	}
       else
 	{
-	  // *** TODO Send a response to GDB indicating the target is not stalled?
-	  //put_str_packet("O");  // Need to hex-encode warning string
+	  // Send a response to GDB indicating the target is not stalled: "Target not stopped"
+	  put_str_packet("O6154677274656e20746f73206f74707064650a0d");  // Need to hex-encode warning string (I think...)
 	  fprintf(stderr, "WARNING:  Received GDB command 0x%X (%c) while target running!\n", buf->data[0], buf->data[0]);
 	}
+      return;
     }
 
   switch (buf->data[0])
@@ -2642,7 +2643,7 @@ rsp_write_mem_bin (struct rsp_buf *buf)
     }
 
   /* Write the bytes to memory */
-  errcode = dbg_wb_write_block8(addr, bindat, len);
+  errcode = dbg_wb_write_block8(addr, (uint8_t *) bindat, len);
 
   // We can't really verify if the memory target address exists or not.
   // Don't write to non-existant memory unless your system wishbone implementation

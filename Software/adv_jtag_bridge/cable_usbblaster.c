@@ -52,9 +52,9 @@
 
 static struct usb_device *usbblaster_device;
 
-static uint8_t *data_out_scratchpad = NULL;
+static char *data_out_scratchpad = NULL;
 static int data_out_scratchpad_size = 0;
-static uint8_t *data_in_scratchpad = NULL;
+static char *data_in_scratchpad = NULL;
 static int data_in_scratchpad_size = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -209,9 +209,9 @@ int cable_usbblaster_init(){
 
   usb_close(h_device);
 
-  data_out_scratchpad = (uint8_t *) malloc(64);
+  data_out_scratchpad = (char *) malloc(64);
   data_out_scratchpad_size = 64;
-  data_in_scratchpad = (uint8_t *) malloc(64);
+  data_in_scratchpad = (char *) malloc(64);
   data_in_scratchpad_size = 64;
   
   return APP_ERR_NONE;
@@ -222,7 +222,7 @@ int cable_usbblaster_out(uint8_t value)
 {
   int             rv;                  // to catch return values of functions
   usb_dev_handle *h_device;            // handle on the ubs device
-  uint8_t out;
+  char out;
   int err = APP_ERR_NONE;
 
   // open the device
@@ -279,7 +279,7 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
   int             rv;                  // to catch return values of functions
   usb_dev_handle *h_device;            // handle on the usb device
   char ret[3] = {0,0,0};               // Two useless bytes (0x31,0x60) always precede the useful byte
-  unsigned char out;
+  char out;
 
   out = (USBBLASTER_CMD_OE | USBBLASTER_CMD_nCS);  // Set output enable (?) and nCS (necessary for byte-shift reads)
   out |=  USBBLASTER_CMD_READ;
@@ -417,7 +417,7 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
   // 32 bits are easier to work with than 8 bits in upper layers.
   if(data_out_scratchpad_size < (bytes_to_transfer+1)) {
     free(data_out_scratchpad);
-    data_out_scratchpad = (uint8_t *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
+    data_out_scratchpad = (char *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
     if(data_out_scratchpad == NULL) {
       usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
       usb_close(h_device);
@@ -532,7 +532,7 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
   // 32 bits are easier to work with than 8 bits in upper layers.
   if(data_out_scratchpad_size < (bytes_to_transfer+1)) {
     free(data_out_scratchpad);
-    data_out_scratchpad = (uint8_t *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
+    data_out_scratchpad = (char *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
     if(data_out_scratchpad == NULL) {
       usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
       usb_close(h_device);
@@ -565,7 +565,7 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
   // Make sure we have a big-enough buffer to hold the incoming data
   if(data_in_scratchpad_size < (bytes_to_transfer+2)) {
     free(data_in_scratchpad);
-    data_in_scratchpad = (uint8_t *) malloc(bytes_to_transfer+2);  // free/malloc instead of realloc will save copy time
+    data_in_scratchpad = (char *) malloc(bytes_to_transfer+2);  // free/malloc instead of realloc will save copy time
     if(data_in_scratchpad == NULL) {
       usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
       usb_close(h_device);
@@ -588,8 +588,7 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
       return APP_ERR_USB;
     }
 
-
-    /*    
+    /*
     debug("Read %i bytes: ", rv);
     for(i = 0; i < rv; i++)
       debug("0x%X ", data_in_scratchpad[i]);
@@ -601,7 +600,9 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
 
     /* Put the received bytes into the return stream.  */
     for(i = 0; i < (rv-2); i++) {
-      uint32_t tmp = data_in_scratchpad[2+i];  // do type promotion before shift
+      // Do size/type promotion before shift.  Must cast to unsigned, else the value may be
+      // sign-extended through the upper 16 bits of the uint32_t.
+      uint32_t tmp = (unsigned char) data_in_scratchpad[2+i];
       instream[(bytes_received+i)>>2] |= (tmp << ((i & 0x3)*8));
     }
 

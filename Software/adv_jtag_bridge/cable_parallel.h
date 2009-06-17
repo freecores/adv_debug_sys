@@ -4,7 +4,6 @@
 
 #include <stdint.h>
 
-
 int cable_parallel_init();
 int cable_parallel_opt(int c, char *str);
 void cable_parallel_phys_wait();

@@ -439,7 +439,7 @@ char * strchr_s(char *str, char *chars)
 #define TARGET_IDCODE 3
 void parse_opcodes(char *cmdbuf, uint32_t *debug_cmd, uint32_t *user1_cmd, uint32_t *idcode_cmd)
 {
-  char *saveptr;
+  char *saveptr = NULL;
   char *cmd;
   char *token;
   char *saveptr2;

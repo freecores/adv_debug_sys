@@ -47,6 +47,9 @@
 // CVS Revision History
 //
 // $Log: altera_virtual_jtag.vhd,v $
+// Revision 1.3  2009/06/16 02:53:19  Nathan
+// Changed some signal names for better consistency between different hardware modules.
+//
 // Revision 1.2  2009/05/17 20:54:47  Nathan
 // Changed email address to opencores.org
 //
@@ -68,8 +71,8 @@ ENTITY altera_virtual_jtag IS
 	PORT
 	(
 		tck_o              : OUT STD_LOGIC;
-		debug_tdi_i        :  IN STD_LOGIC;
-		tdo_o              : OUT STD_LOGIC;
+		debug_tdo_o        :  IN STD_LOGIC;
+		tdi_o              : OUT STD_LOGIC;
 		test_logic_reset_o : OUT STD_LOGIC;
 		run_test_idle_o    : OUT STD_LOGIC;
 		shift_dr_o         : OUT STD_LOGIC;
@@ -151,8 +154,8 @@ BEGIN
 	)
 	PORT MAP (
 		ir_out => ir_value,
-		tdo => debug_tdi_i,
-		tdi => tdo_o,
+		tdo => debug_tdo_o,
+		tdi => tdi_o,
 		jtag_state_rti => run_test_idle_o,
 		tck => tck_o,
 		ir_in => ir_value,

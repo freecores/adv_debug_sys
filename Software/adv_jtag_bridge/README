@@ -5,9 +5,17 @@ BUILDING
 
 This program doesn't use automake.  It has been developed using the cygwin 
 environment under winXP, and should also compile under various GNU/Linux 
-distributions.  There are two sets of build flags defined in the Makefile, 
+distributions.  It has been tested and in known to work with Ubuntu 9.04.
+There are two sets of build flags defined in the Makefile, 
 one for cygwin and one for Linux - one set is used, one is commented out.  
 Edit the Makefile for your system, type "make," and see what happens...
+
+The program may be built with support for the Advanced Debug Interface
+(the default), or the legacy "debug_if" interface.  To compile for the
+legacy interface, __LEGACY__ should be added to CFLAGS in the Makefile
+(the line is present but commented out by default).  Note that support
+for the two different debug hardware units is mutually exclusive; both
+cannot be supported in the same build.
 
 DEPENDENCIES
 

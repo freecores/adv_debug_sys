@@ -43,6 +43,9 @@
 // CVS Revision History
 //
 // $Log: tap_top.v,v $
+// Revision 1.5  2009/06/16 02:53:58  Nathan
+// Changed some signal names for better consistency between different hardware modules. Removed stale CVS log/comments.
+//
 // Revision 1.4  2009/05/17 20:54:38  Nathan
 // Changed email address to opencores.org
 //
@@ -58,60 +61,6 @@
 // run_test_idle_o signals.  Removed double registers from IR data
 // path.  Unified the registers at the output of each data register
 // to a single shared FF.
-//
-// Revision 1.6  2004/01/27 10:00:33  mohor
-// Unused registers removed.
-//
-// Revision 1.5  2004/01/18 09:27:39  simons
-// Blocking non blocking assignmenst fixed.
-//
-// Revision 1.4  2004/01/17 17:37:44  mohor
-// capture_dr_o added to ports.
-//
-// Revision 1.3  2004/01/14 13:50:56  mohor
-// 5 consecutive TMS=1 causes reset of TAP.
-//
-// Revision 1.2  2004/01/08 10:29:44  mohor
-// Control signals for tdo_pad_o mux are changed to negedge.
-//
-// Revision 1.1  2003/12/23 14:52:14  mohor
-// Directory structure changed. New version of TAP.
-//
-// Revision 1.10  2003/10/23 18:08:01  mohor
-// MBIST chain connection fixed.
-//
-// Revision 1.9  2003/10/23 16:17:02  mohor
-// CRC logic changed.
-//
-// Revision 1.8  2003/10/21 09:48:31  simons
-// Mbist support added.
-//
-// Revision 1.7  2002/11/06 14:30:10  mohor
-// Trst active high. Inverted on higher layer.
-//
-// Revision 1.6  2002/04/22 12:55:56  mohor
-// tdo_padoen_o changed to tdo_padoe_o. Signal is active high.
-//
-// Revision 1.5  2002/03/26 14:23:38  mohor
-// Signal tdo_padoe_o changed back to tdo_padoen_o.
-//
-// Revision 1.4  2002/03/25 13:16:15  mohor
-// tdo_padoen_o changed to tdo_padoe_o. Signal was always active high, just
-// not named correctly.
-//
-// Revision 1.3  2002/03/12 14:30:05  mohor
-// Few outputs for boundary scan chain added.
-//
-// Revision 1.2  2002/03/12 10:31:53  mohor
-// tap_top and dbg_top modules are put into two separate modules. tap_top
-// contains only tap state machine and related logic. dbg_top contains all
-// logic necessery for debugging.
-//
-// Revision 1.1  2002/03/08 15:28:16  mohor
-// Structure changed. Hooks for jtag chain added.
-//
-//
-//
 //
 
 `include "tap_defines.v"
@@ -141,12 +90,12 @@ module tap_top(
                 debug_select_o,
                 
                 // TDO signal that is connected to TDI of sub-modules.
-                tdo_o, 
+                tdi_o, 
                 
                 // TDI signals from sub-modules
-                debug_tdi_i,    // from debug module
-                bs_chain_tdi_i, // from Boundary Scan Chain
-                mbist_tdi_i     // from Mbist Chain
+                debug_tdo_i,    // from debug module
+                bs_chain_tdo_i, // from Boundary Scan Chain
+                mbist_tdo_i     // from Mbist Chain
               );
 
 
@@ -173,12 +122,12 @@ output  mbist_select_o;
 output  debug_select_o;
 
 // TDO signal that is connected to TDI of sub-modules.
-output  tdo_o;
+output  tdi_o;
 
 // TDI signals from sub-modules
-input   debug_tdi_i;    // from debug module
-input   bs_chain_tdi_i; // from Boundary Scan Chain
-input   mbist_tdi_i;    // from Mbist Chain
+input   debug_tdo_i;    // from debug module
+input   bs_chain_tdo_i; // from Boundary Scan Chain
+input   mbist_tdo_i;    // from Mbist Chain
 
 // Wires which depend on the state of the TAP FSM
 reg     test_logic_reset;
@@ -210,7 +159,7 @@ reg     bypass_select;
 reg     tdo_pad_o;
 reg     tdo_padoe_o;
 
-assign tdo_o = tdi_pad_i;
+assign tdi_o = tdi_pad_i;
 
 assign test_logic_reset_o = test_logic_reset;
 assign run_test_idle_o = run_test_idle;
@@ -537,8 +486,8 @@ end
 reg tdo_mux_out;  // really just a wire
 
 always @ (shift_ir or instruction_tdo or latched_jtag_ir or idcode_tdo or
-          debug_tdi_i or bs_chain_tdi_i or mbist_tdi_i or bypassed_tdo or
-			bs_chain_tdi_i)
+          debug_tdo_i or bs_chain_tdo_i or mbist_tdo_i or bypassed_tdo or
+			bs_chain_tdo_i)
 begin
   if(shift_ir)
     tdo_mux_out = instruction_tdo;
@@ -546,10 +495,10 @@ begin
     begin
       case(latched_jtag_ir)    // synthesis parallel_case
         `IDCODE:            tdo_mux_out = idcode_tdo;       // Reading ID code
-        `DEBUG:             tdo_mux_out = debug_tdi_i;      // Debug
-        `SAMPLE_PRELOAD:    tdo_mux_out = bs_chain_tdi_i;   // Sampling/Preloading
-        `EXTEST:            tdo_mux_out = bs_chain_tdi_i;   // External test
-        `MBIST:             tdo_mux_out = mbist_tdi_i;      // Mbist test
+        `DEBUG:             tdo_mux_out = debug_tdo_i;      // Debug
+        `SAMPLE_PRELOAD:    tdo_mux_out = bs_chain_tdo_i;   // Sampling/Preloading
+        `EXTEST:            tdo_mux_out = bs_chain_tdo_i;   // External test
+        `MBIST:             tdo_mux_out = mbist_tdo_i;      // Mbist test
         default:            tdo_mux_out = bypassed_tdo;     // BYPASS instruction
       endcase
     end
