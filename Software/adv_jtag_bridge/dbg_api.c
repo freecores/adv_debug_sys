@@ -30,6 +30,7 @@
 
 #include "adv_dbg_commands.h"
 #include "legacy_dbg_commands.h"
+#include "cable_common.h"
 #include "errcodes.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
@@ -55,6 +56,7 @@ int dbg_wb_read32(unsigned long adr, unsigned long *data) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -67,7 +69,7 @@ int dbg_wb_read32(unsigned long adr, unsigned long *data) {
 	  err = legacy_dbg_go((unsigned char*)data, 4, 1);
       *data = ntohl(*data);
     }
-
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -81,6 +83,7 @@ int dbg_wb_write32(unsigned long adr, unsigned long data) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -93,6 +96,7 @@ int dbg_wb_write32(unsigned long adr, unsigned long data) {
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x2, adr, 4)))
 	  err = legacy_dbg_go((unsigned char*)&data, 4, 0);  
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -107,6 +111,7 @@ int dbg_wb_write16(unsigned long adr, uint16_t data) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}  
@@ -119,7 +124,7 @@ int dbg_wb_write16(unsigned long adr, uint16_t data) {
 	  if (APP_ERR_NONE == (err = legacy_dbg_command(0x1, adr, 2)))
 	    err = legacy_dbg_go((unsigned char*)&data, 2, 0);
     }
-
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -134,6 +139,7 @@ int dbg_wb_write8(unsigned long adr, uint8_t data) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -145,7 +151,7 @@ int dbg_wb_write8(unsigned long adr, uint8_t data) {
 	  if (APP_ERR_NONE == (err = legacy_dbg_command(0x0, adr, 1)))
 	    err = legacy_dbg_go((unsigned char*)&data, 1, 0);
     }
-
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -162,6 +168,7 @@ int dbg_wb_read_block32(unsigned long adr, unsigned long *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -176,7 +183,7 @@ int dbg_wb_read_block32(unsigned long adr, unsigned long *data, int len) {
 	  if (APP_ERR_NONE == (err = legacy_dbg_go((unsigned char*)data, bytelen, 1))) // 'len' is words, call wants bytes
 	    for (i = 0; i < len; i ++) data[i] = ntohl(data[i]);   
     }
-
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -194,6 +201,7 @@ int dbg_wb_read_block16(unsigned long adr, uint16_t *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -208,7 +216,7 @@ int dbg_wb_read_block16(unsigned long adr, uint16_t *data, int len) {
 	  if (APP_ERR_NONE == (err = legacy_dbg_go((unsigned char*)data, bytelen, 1)))  // 'len' is halfwords, call wants bytes
 	    for (i = 0; i < len; i ++) data[i] = ntohs(data[i]); 
     }
-
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -225,6 +233,7 @@ int dbg_wb_read_block8(unsigned long adr, uint8_t *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -236,6 +245,7 @@ int dbg_wb_read_block8(unsigned long adr, uint8_t *data, int len) {
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x4, adr, len)))
 	  err = legacy_dbg_go((unsigned char*)data, len, 1);
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -254,6 +264,7 @@ int dbg_wb_write_block32(unsigned long adr, unsigned long *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -268,6 +279,7 @@ int dbg_wb_write_block32(unsigned long adr, unsigned long *data, int len) {
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x2, adr, bytelen)))
 	  err = legacy_dbg_go((unsigned char*)data, bytelen, 0);  // 'len' is words, call wants bytes 
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -286,6 +298,7 @@ int dbg_wb_write_block16(unsigned long adr, uint16_t *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -300,6 +313,7 @@ int dbg_wb_write_block16(unsigned long adr, uint16_t *data, int len) {
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x1, adr, bytelen)))
 	  err = legacy_dbg_go((unsigned char*)data, bytelen, 0);  // 'len' is 16-bit halfwords, call wants bytes  
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -316,6 +330,7 @@ int dbg_wb_write_block8(unsigned long adr, uint8_t *data, int len) {
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -327,6 +342,7 @@ int dbg_wb_write_block8(unsigned long adr, uint8_t *data, int len) {
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x0, adr, len)))
 	  err = legacy_dbg_go((unsigned char*)data, len, 0); 
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -341,6 +357,7 @@ int dbg_cpu0_read(unsigned long adr, unsigned long *data) {
     {
       if ((err = adbg_select_module(DC_CPU0)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -353,6 +370,7 @@ int dbg_cpu0_read(unsigned long adr, unsigned long *data) {
 	  if (APP_ERR_NONE == (err = legacy_dbg_go((unsigned char*)data, 4, 1)))
 	    *data = ntohl(*data);
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   debug("dbg_cpu_read(), addr 0x%X, data[0] = 0x%X\n", adr, data[0]);
   return err;
@@ -367,6 +385,7 @@ int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count) {
     {
       if ((err = adbg_select_module(DC_CPU0)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -381,6 +400,7 @@ int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count) {
 	err |= dbg_cpu0_read(readaddr++, &data[i]);
       }
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   debug("dbg_cpu_read_block(), addr 0x%X, count %i, data[0] = 0x%X\n", adr, count, data[0]);
   return err;
@@ -395,6 +415,7 @@ int dbg_cpu0_write(unsigned long adr, unsigned long data) {
     {
       if ((err = adbg_select_module(DC_CPU0))) 
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -408,6 +429,7 @@ int dbg_cpu0_write(unsigned long adr, unsigned long data) {
 	  err = legacy_dbg_go((unsigned char*)&data, 4, 0);  
     }
   debug("cpu0_write, adr 0x%X, data 0x%X, ret %i\n", adr, data, err);
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -421,6 +443,7 @@ int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count) {
     {
       if ((err = adbg_select_module(DC_CPU0)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -436,6 +459,7 @@ int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count) {
       }
     }
   debug("cpu0_write_block, adr 0x%X, data[0] 0x%X, count %i, ret %i\n", adr, data[0], count, err);
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -452,11 +476,13 @@ int dbg_cpu0_write_ctrl(unsigned long adr, unsigned char data) {
     {
       if ((err = adbg_select_module(DC_CPU0))) {
 	printf("Failed to set chain to 0x%X\n", DC_CPU0);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
       if((err = adbg_ctrl_write(DBG_CPU0_REG_STATUS, &dataword, 2))) {
 	printf("Failed to write chain to 0x%X control reg 0x%X\n", DC_CPU0,DBG_CPU0_REG_STATUS );  // Only 2 bits: Reset, Stall
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
@@ -467,6 +493,7 @@ int dbg_cpu0_write_ctrl(unsigned long adr, unsigned char data) {
 	err = legacy_dbg_ctrl(data & 2, data &1);
     }
   debug("cpu0_write_ctrl(): set reg to 0x%X\n", data);
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -485,11 +512,13 @@ int dbg_cpu0_read_ctrl(unsigned long adr, unsigned char *data) {
     {
       if ((err = adbg_select_module(DC_CPU0))) {
 	printf("Failed to set chain to 0x%X\n", DC_CPU0);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
       if ((err = adbg_ctrl_read(DBG_CPU0_REG_STATUS, &dataword, 2))) {
 	printf("Failed to read chain 0x%X control reg 0x%X\n", DC_CPU0, DBG_CPU0_REG_STATUS);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
@@ -503,7 +532,7 @@ int dbg_cpu0_read_ctrl(unsigned long adr, unsigned char *data) {
       *data = (r << 1) | s;
       debug("api cpu0 read ctrl: r = %i, s = %i, data = %i\n", r, s, *data);
     }
-  
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -520,6 +549,7 @@ int dbg_cpu1_read(unsigned long adr, unsigned long *data)
     {
       if ((err = adbg_select_module(DC_CPU1)))
 	{
+	  cable_flush();
 	  pthread_mutex_unlock(&dbg_access_mutex);
 	  return err;
 	}
@@ -532,6 +562,7 @@ int dbg_cpu1_read(unsigned long adr, unsigned long *data)
 	  err = legacy_dbg_go((unsigned char*)data, 4, 1);
       *data = ntohl(*data); 
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -547,6 +578,7 @@ int dbg_cpu1_write(unsigned long adr, unsigned long data)
     {
   if ((err = adbg_select_module(DC_CPU0)))
     {
+      cable_flush();
       pthread_mutex_unlock(&dbg_access_mutex);
       return err;
     }
@@ -559,6 +591,7 @@ int dbg_cpu1_write(unsigned long adr, unsigned long data)
 	if (APP_ERR_NONE == (err = legacy_dbg_command(0x2, adr, 4)))
 	  err = legacy_dbg_go((unsigned char*)&data, 4, 0);
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -574,11 +607,13 @@ int dbg_cpu1_write_ctrl(unsigned long adr, unsigned char data) {
     {
       if ((err = adbg_select_module(DC_CPU1))) {
 	printf("Failed to set chain to 0x%X\n", DC_CPU1);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
       if((err = adbg_ctrl_write(DBG_CPU1_REG_STATUS, &dataword, 2))) {
 	printf("Failed to write chain to 0x%X control reg 0x%X\n", DC_CPU1,DBG_CPU0_REG_STATUS );  // Only 2 bits: Reset, Stall
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
@@ -588,6 +623,7 @@ int dbg_cpu1_write_ctrl(unsigned long adr, unsigned char data) {
       if (APP_ERR_NONE == (err = legacy_dbg_set_chain(DC_CPU1)))
 	err = legacy_dbg_ctrl(data & 2, data & 1);
     }
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }
@@ -605,11 +641,13 @@ int dbg_cpu1_read_ctrl(unsigned long adr, unsigned char *data) {
     {
       if ((err = adbg_select_module(DC_CPU1))) {
 	printf("Failed to set chain to 0x%X\n", DC_CPU1);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
       if ((err = adbg_ctrl_read(DBG_CPU1_REG_STATUS, &dataword, 2))) {
 	printf("Failed to read chain 0x%X control reg 0x%X\n", DC_CPU0, DBG_CPU1_REG_STATUS);
+	cable_flush();
 	pthread_mutex_unlock(&dbg_access_mutex);
 	return err;
       }
@@ -622,7 +660,7 @@ int dbg_cpu1_read_ctrl(unsigned long adr, unsigned char *data) {
 	err = legacy_dbg_ctrl_read(&r, &s);
       *data = (r << 1) | s; 
     }
-  
+  cable_flush();
   pthread_mutex_unlock(&dbg_access_mutex);
   return err;
 }

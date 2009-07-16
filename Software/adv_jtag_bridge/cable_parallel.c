@@ -106,8 +106,19 @@ int cable_xpc3_inout(uint8_t value, uint8_t *inval)
 {
   uint8_t in;
   int retval;
+  uint8_t out = 0;
 
-  retval = cable_parallel_inout(value, &in);
+  /* First convert the bits in value byte to the ones that the cable wants */
+  if(value & TCLK_BIT)
+    out |= 0x02; /* D1 pin 3 */
+  if(value & TRST_BIT)
+    out |= 0x10; /* Not used */
+  if(value & TDI_BIT)
+    out |= 0x01; /* D0 pin 2 */
+  if(value & TMS_BIT)
+    out |= 0x04; /* D2 pin 4 */
+
+  retval = cable_parallel_inout(out, &in);
 
   if(in & 0x10) /* S6 pin 13 */
     *inval = 1;

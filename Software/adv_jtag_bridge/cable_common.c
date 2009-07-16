@@ -27,6 +27,7 @@
 #include "cable_parallel.h"
 #include "cable_sim.h"
 #include "cable_usbblaster.h"
+#include "cable_ft2232.h"
 #include "cable_xpc_dlc9.h"
 #include "errcodes.h"
 
@@ -43,6 +44,7 @@ static struct jtag_cable {
   int (*bit_inout_func)(uint8_t, uint8_t *);
   int (*stream_out_func)(uint32_t *, int, int);
   int (*stream_inout_func)(uint32_t *, uint32_t *, int, int);
+  int (*flush_func)();
   const char *opts;
   const char *help;
 } jtag_cables[] = {
@@ -56,6 +58,7 @@ static struct jtag_cable {
     cable_common_read_write_bit,
     cable_common_write_stream, 
     cable_common_read_stream,
+    NULL,
     "d:",
     "-d [directory] Directory in which gdb_in.dat/gdb_out.dat may be found\n" },
   { "vpi", 
@@ -68,6 +71,7 @@ static struct jtag_cable {
     cable_common_read_write_bit,
     cable_common_write_stream, 
     cable_common_read_stream,
+    NULL,
     "s:p:",
     "-p [port] Port number that the VPI module is listening on\n\t-s [server] Server that the VPI module is running on\n" },
   { "xpc3", 
@@ -79,7 +83,8 @@ static struct jtag_cable {
     cable_common_write_bit,
     cable_common_read_write_bit,
     cable_common_write_stream, 
-    cable_common_read_stream, 
+    cable_common_read_stream,
+    NULL,
     "p:",
     "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n" },
   { "xess", 
@@ -91,9 +96,11 @@ static struct jtag_cable {
     cable_common_write_bit,
     cable_common_read_write_bit,
     cable_common_write_stream, 
-    cable_common_read_stream, 
+    cable_common_read_stream,
+    NULL,
     "p:",
     "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n" },
+#ifdef __SUPPORT_USB_CABLES__
   { "usbblaster", 
     cable_usbblaster_inout, 
     cable_usbblaster_out, 
@@ -104,6 +111,7 @@ static struct jtag_cable {
     cable_common_read_write_bit,
     cable_usbblaster_write_stream, 
     cable_usbblaster_read_stream,
+    NULL,
     "",
     "no options\n" },
   { "xpc_usb", 
@@ -115,10 +123,29 @@ static struct jtag_cable {
     cable_common_write_bit,
     cable_xpcusb_read_write_bit,
     cable_common_write_stream, 
-    cable_common_read_stream, 
+    cable_common_read_stream,
+    NULL,
     "",
     "no options\n" },
-  { NULL, NULL, NULL, NULL } };
+#ifdef __SUPPORT_FTDI_CABLES__
+  { "ft2232",
+    NULL,
+    NULL,
+    cable_ftdi_init,
+    NULL,
+    cable_ftdi_opt,
+    cable_ftdi_write_bit,
+    cable_ftdi_read_write_bit,
+    cable_ftdi_write_stream,
+    cable_ftdi_read_stream,
+    cable_ftdi_flush,
+    "",
+    "no options\n" },
+#endif  // __SUPPORT_FTDI_CABLES__
+#endif  // __SUPPORT_USB_CABLES__
+  { NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL, NULL } };
 
 static struct jtag_cable *jtag_cable_in_use = NULL; /* The currently selected cable */
 
@@ -201,6 +228,12 @@ int cable_write_bit(uint8_t packet) {
 
 int cable_read_write_bit(uint8_t packet_out, uint8_t *bit_in) {
   return jtag_cable_in_use->bit_inout_func(packet_out, bit_in);
+}
+
+int cable_flush(void) {
+  if(jtag_cable_in_use->flush_func != NULL)
+    return jtag_cable_in_use->flush_func();
+  return APP_ERR_NONE;
 }
 
 

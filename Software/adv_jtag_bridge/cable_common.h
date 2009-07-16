@@ -33,6 +33,7 @@ int cable_write_bit(uint8_t packet);
 int cable_read_write_bit(uint8_t packet_out, uint8_t *bit_in);
 int cable_write_stream(uint32_t *stream, int len_bits, int set_last_bit);
 int cable_read_write_stream(uint32_t *outstream, uint32_t *instream, int len_bits, int set_last_bit);
+int cable_flush(void);
 
 // Common functions for lower-level drivers to use as desired
 int cable_common_write_bit(uint8_t packet);
