@@ -150,8 +150,19 @@ uint8_t cable_xess_inout(uint8_t value, uint8_t *inval)
 {
   uint8_t in;
   int retval;
+  uint8_t out = 0;
 
-  retval = cable_parallel_inout(value, &in);
+  /* First convert the bits in value byte to the ones that the cable wants */
+  if(value & TCLK_BIT)
+    out |= 0x04; /* D2 pin 4 */
+  if(value & TRST_BIT)
+    out |= 0x08; /* D3 pin 5 */
+  if(value & TDI_BIT)
+    out |= 0x10; /* D4 pin 6 */
+  if(value & TMS_BIT)
+    out |= 0x20; /* D3 pin 5 */
+
+  retval = cable_parallel_inout(out, &in);
 
   if(in & 0x20) /* S5 pin 12*/
     *inval = 1;
