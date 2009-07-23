@@ -1,0 +1,54 @@
+These are the notes for building the Advanced JTAG Bridge program.
+Nathan Yawn, nathan.yawn@opencores.org
+
+BUILDING
+
+This program doesn't use automake.  It has been developed using the cygwin 
+environment under winXP, and should also compile under various GNU/Linux 
+distributions.  It has been tested and in known to work with Ubuntu 9.04.
+There are two sets of build flags defined in the Makefile, 
+one for cygwin and one for Linux - one set is used, one is commented out.  
+Edit the Makefile for your system, type "make," and see what happens...
+
+The program may be built with support for the Advanced Debug Interface
+(the default), or the legacy "debug_if" interface.  To compile for the
+legacy interface, __LEGACY__ should be added to CFLAGS in the Makefile
+(the line is present but commented out by default).  Note that support
+for the two different debug hardware units is mutually exclusive; both
+cannot be supported in the same build.
+
+DEPENDENCIES
+
+Adv_jtag_bridge has three dependencies:
+
+- The pthreads library (probably already installed)
+- Cygwin only:  libioperm (for parallel port device access permissions)
+- libusb
+
+Since adv_jtag_bridge was written, a newer version of libusb has been 
+released (1.0), which used a different interface.  We still use the old 
+interface (0.1), so be sure you install the "compatibility layer" if you 
+install the latest libusb.  As of December 2008, libUSB-Win32 still used 
+v0.1, so cygwin users may not need to install any additional compatibility 
+layer.
+
+BUGS
+
+GDB 6.8 has a bug which prevents it from working when no stack frame is 
+present (such as at start-up on a bare-metal debugger, such as this one).  
+A simple patch applied to GDB 6.8 will work around the problem (a general 
+solution is not yet available).  This patch can be found in the source
+directory of adv_jtag_bridge as "gdb-6.8-bz436037-reg-no-longer-active.patch".
+
+LICENSE
+
+This code is based on "jp2", which was distributed under the GNU Public 
+License, version 2.  Adv_jtag_bridge is therefore also distributed under 
+this license.
+
+WARRANTY
+
+This program is distributed in the hope that it will be useful, but WITHOUT 
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+more details.
