@@ -123,7 +123,7 @@ int adbg_select_ctrl_reg(unsigned long regidx)
   debug("selreg %ld\n", regidx);
 
   // If this reg is already selected, don't do a JTAG transaction
-  if(current_reg_idx[current_chain] == regidx)
+  if((current_chain >= 0) && (current_reg_idx[current_chain] == regidx))
     return APP_ERR_NONE;
 
   switch(current_chain) {

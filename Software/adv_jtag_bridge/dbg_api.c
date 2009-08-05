@@ -159,11 +159,11 @@ int dbg_wb_write8(unsigned long adr, uint8_t data) {
 
 int dbg_wb_read_block32(unsigned long adr, unsigned long *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -192,11 +192,11 @@ int dbg_wb_read_block32(unsigned long adr, unsigned long *data, int len) {
 // Never actually called from the GDB interface
 int dbg_wb_read_block16(unsigned long adr, uint16_t *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -224,11 +224,11 @@ int dbg_wb_read_block16(unsigned long adr, uint16_t *data, int len) {
 // Never actually called from the GDB interface
 int dbg_wb_read_block8(unsigned long adr, uint8_t *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -251,15 +251,14 @@ int dbg_wb_read_block8(unsigned long adr, uint8_t *data, int len) {
 }
 
 
-
 // write a block to wishbone 
 int dbg_wb_write_block32(unsigned long adr, unsigned long *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -289,11 +288,11 @@ int dbg_wb_write_block32(unsigned long adr, unsigned long *data, int len) {
 // Never actually called from the GDB interface
 int dbg_wb_write_block16(unsigned long adr, uint16_t *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -321,11 +320,11 @@ int dbg_wb_write_block16(unsigned long adr, uint16_t *data, int len) {
 // write a block to wishbone
 int dbg_wb_write_block8(unsigned long adr, uint8_t *data, int len) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(!len)
     return APP_ERR_NONE;  // GDB may issue a 0-length transaction to test if a feature is supported
 
+  pthread_mutex_lock(&dbg_access_mutex);
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
       if ((err = adbg_select_module(DC_WISHBONE)))
@@ -379,10 +378,10 @@ int dbg_cpu0_read(unsigned long adr, unsigned long *data) {
 /* read multiple registers from cpu0.  This is assumed to be an OR32 CPU, with 32-bit regs. */
 int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
 
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
+      pthread_mutex_lock(&dbg_access_mutex);
       if ((err = adbg_select_module(DC_CPU0)))
 	{
 	  cable_flush();
@@ -390,6 +389,8 @@ int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count) {
 	  return err;
 	}
       err = adbg_wb_burst_read(4, count, adr, (void *) data); // All CPU register reads / writes are bursts
+      cable_flush();
+      pthread_mutex_unlock(&dbg_access_mutex);
     }
   else if(DEBUG_HARDWARE == DBG_HW_LEGACY)
     {
@@ -400,8 +401,7 @@ int dbg_cpu0_read_block(unsigned long adr, unsigned long *data, int count) {
 	err |= dbg_cpu0_read(readaddr++, &data[i]);
       }
     }
-  cable_flush();
-  pthread_mutex_unlock(&dbg_access_mutex);
+
   debug("dbg_cpu_read_block(), addr 0x%X, count %i, data[0] = 0x%X\n", adr, count, data[0]);
   return err;
 }
@@ -437,10 +437,10 @@ int dbg_cpu0_write(unsigned long adr, unsigned long data) {
 /* write multiple cpu registers to cpu0.  This is assumed to be an OR32 CPU, with 32-bit regs. */
 int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count) {
   int err;
-  pthread_mutex_lock(&dbg_access_mutex);
-
+  
   if(DEBUG_HARDWARE == DBG_HW_ADVANCED)
     {
+      pthread_mutex_lock(&dbg_access_mutex);
       if ((err = adbg_select_module(DC_CPU0)))
 	{
 	  cable_flush();
@@ -448,6 +448,8 @@ int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count) {
 	  return err;
 	}
       err = adbg_wb_burst_write((void *)data, 4, count, adr);
+      cable_flush();
+      pthread_mutex_unlock(&dbg_access_mutex);
     }
   else if(DEBUG_HARDWARE == DBG_HW_LEGACY)
     {
@@ -459,8 +461,7 @@ int dbg_cpu0_write_block(unsigned long adr, unsigned long *data, int count) {
       }
     }
   debug("cpu0_write_block, adr 0x%X, data[0] 0x%X, count %i, ret %i\n", adr, data[0], count, err);
-  cable_flush();
-  pthread_mutex_unlock(&dbg_access_mutex);
+ 
   return err;
 }
 
