@@ -81,7 +81,14 @@ int cable_parallel_opt(int c, char *str)
 /*-----------------------------------------[ Physical board wait function ]---*/
 void cable_parallel_phys_wait()
 {
-  usleep(10);
+  /* Multiple users have reported poor performance of parallel cables,
+   * which has been traced to usleep() sleeping much longer than 
+   * microseconds.  The same users have reported error-free functionality
+   * and an order of magnitude improvement in upload speed.
+   * If you get strange data errors while running, add this sleep back
+   * in, or perhaps a busy-wait delay. 
+   */ 
+  /* usleep(10); */
 }
 
 /*----------------------------------------------[ xpc3 specific functions ]---*/
