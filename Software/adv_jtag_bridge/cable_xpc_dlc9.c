@@ -1,5 +1,5 @@
 /* cable_xpc_dlc9.c - Xilinx Platform Cable (DLC9) driver for the Advanced JTAG Bridge
-   Copyright (C) 2008 Nathan Yawn, nathan.yawn@opencores.org
+   Copyright (C) 2008 - 2010 Nathan Yawn, nathan.yawn@opencores.org
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

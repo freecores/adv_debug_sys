@@ -45,6 +45,9 @@
 // CVS Revision History
 //
 // $Log: xsv_fpga_defines.v,v $
+// Revision 1.3  2010-01-08 01:41:07  Nathan
+// Removed unused, non-existant include from CPU behavioral model.  Minor text edits.
+//
 // Revision 1.2  2008/07/11 08:16:01  Nathan
 // Ran through dos2unix
 //

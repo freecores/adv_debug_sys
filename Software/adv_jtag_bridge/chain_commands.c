@@ -1,5 +1,5 @@
 /* chain_commands.c -- JTAG protocol bridge between GDB and Advanced debug module.
-   Copyright(C) Nathan Yawn, nyawn@opencores.net
+   Copyright(C) 2008 - 2010 Nathan Yawn, nyawn@opencores.net
    based on code from jp2 by Marko Mlinar, markom@opencores.org
    
    This file contains functions which perform mid-level transactions

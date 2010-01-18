@@ -1,5 +1,5 @@
 /* adv_dbg_commands.c -- JTAG protocol bridge between GDB and Advanced debug module.
-   Copyright(C) Nathan Yawn, nyawn@opencores.net
+   Copyright (C) 2008-2010 Nathan Yawn, nyawn@opencores.net
    
    This file contains functions which perform high-level transactions
    on a JTAG chain and debug unit, such as setting a value in the TAP IR
@@ -26,11 +26,10 @@
 #include <stdio.h>
 #include <stdlib.h>  // for malloc()
 #include <unistd.h>  // for exit()
-//#include <pthread.h>  // for mutexes
+#include <strings.h> // for bzero()
 
 #include "chain_commands.h"
 #include "adv_dbg_commands.h"     // hardware-specific defines for the debug module
-//#include "altera_virtual_jtag.h"  // hardware-specifg defines for the Altera Virtual JTAG interface
 #include "cable_common.h"         // low-level JTAG IO routines
 #include "errcodes.h"
 
@@ -123,7 +122,7 @@ int adbg_select_ctrl_reg(unsigned long regidx)
   debug("selreg %ld\n", regidx);
 
   // If this reg is already selected, don't do a JTAG transaction
-  if((current_chain >= 0) && (current_reg_idx[current_chain] == regidx))
+  if(current_reg_idx[current_chain] == regidx)
     return APP_ERR_NONE;
 
   switch(current_chain) {
@@ -345,6 +344,8 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
   uint32_t err_data[2];
   int bus_error_retries = 0;
   int err = APP_ERR_NONE;
+  static char *output_scratchpad = NULL;
+  static int output_scratchpad_size = 0;
 
     debug("Doing burst read, word size %d, word count %d, start address 0x%lX", word_size_bytes, word_count, start_address);
 
@@ -397,7 +398,7 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
     if(err |= adbg_burst_command(opcode, addr, (word_count-i)))  // word_count-i in case of partial retry 
       return err;
 
-    // This is a kludge to word around oddities in the Xilinx BSCAN_* devices, and the
+    // This is a kludge to work around oddities in the Xilinx BSCAN_* devices, and the
     // adv_dbg_if state machine.  The debug FSM needs 1 TCK between UPDATE_DR above, and
     // the CAPTURE_DR below, and the BSCAN_* won't provide it.  So, we force it, by putting the TAP
     // in BYPASS, which makes the debug_select line inactive, which is AND'ed with the TCK line (in the xilinx_internal_jtag module),
@@ -413,7 +414,51 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
     
     // We do not adjust for the DR length here.  BYPASS regs are loaded with 0,
     // and the debug unit waits for a '1' status bit before beginning to read data.
-   
+
+#ifdef ADBG_OPT_HISPEED
+       // Get 1 status bit, then word_size_bytes*8 bits
+       status = 0;
+       j = 0;
+       while(!status) {  // Status indicates whether there is a word available to read.  Wait until it returns true.
+         err |= jtag_read_write_bit(0, &status);
+         j++;
+	 // If max count exceeded, retry
+	 if(j > MAX_READ_STATUS_WAIT) {
+	   printf("Burst read timed out.\n");
+	   if(!retry_do()) { 
+	     printf("Retry count exceeded in burst read!\n"); 
+	     return err|APP_ERR_MAX_RETRY;
+	   }
+	   err = APP_ERR_NONE;  // on retry, errors cleared
+	   goto wb_burst_read_retry_full;
+	 }
+       }
+
+       // Check we have enough space for the (zero) output data
+       if(output_scratchpad_size < (word_count*word_size_bytes))
+	 {
+	   free(output_scratchpad);
+	   output_scratchpad = (char *) malloc(word_count*word_size_bytes);
+	   if(output_scratchpad != NULL) {
+	     output_scratchpad_size = (word_count*word_size_bytes);
+	     bzero(output_scratchpad, output_scratchpad_size);
+	   }
+	   else {
+	     output_scratchpad_size = 0;
+	     return APP_ERR_MALLOC;
+	   }
+	 }
+       //uint32_t outstream[64];
+       //bzero((char *)outstream, 64*4);
+
+       // Get the data in one shot
+       err |= jtag_read_write_stream((uint32_t *)output_scratchpad, (uint32_t *)data, word_size_bits*word_count, 0, 0);
+       for(i = 0; i < (word_count*word_size_bytes); i++)
+	 {
+	   crc_calc = adbg_compute_crc(crc_calc, ((uint8_t *)data)[i], 8);
+	 } 
+#else
+
    // Repeat for each word: wait until ready = 1, then read word_size_bits bits.
    for(; i < word_count; i++) 
      {
@@ -461,6 +506,7 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
        else if(word_size_bytes == 2) ((unsigned short *)data)[i] = in_data & 0xFFFF;
        else ((unsigned long *)data)[i] = in_data;
      }
+#endif
     
    // All bus data was read.  Read the data CRC from the debug module.
    err |= jtag_read_write_stream(&out_data, &crc_read, 32, 0, 1);
@@ -476,7 +522,6 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
      goto  wb_burst_read_retry_full;
    }
    else debug("CRC OK!");
-    
 
 
    // Now, read the error register, and retry/recompute as necessary.
@@ -508,9 +553,7 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
 int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigned long start_address)
 {
   unsigned char opcode;
-  uint8_t status;
   uint32_t datawords[2] = {0,0};
-  uint32_t statuswords[2] = {0,0};
   int i;
   uint32_t crc_calc;
   uint32_t crc_match;
@@ -519,10 +562,14 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
   int bus_error_retries = 0;
   uint32_t err_data[2];
   int loopct, successes;
-  int first_status_loop;
+#ifndef ADBG_OPT_HISPEED
+  uint8_t status;
+  uint32_t statuswords[2] = {0,0};
+  int first_status_loop = 1;
+#endif
   int err = APP_ERR_NONE;
 
-    debug("Doing burst write, word size %d, word count %d, start address 0x%lx", word_size_bytes, word_count, start_address);
+    debug("Doing burst write, word size %d, word count %d, start address 0x%lx\n", word_size_bytes, word_count, start_address);
     word_size_bits = word_size_bytes << 3;
 
     if(word_count <= 0) {
@@ -560,8 +607,10 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
       return 1;
     }
 
+#ifndef ADBG_OPT_HISPEED
     // Compute which loop iteration in which to expect the first status bit
     first_status_loop = 1 + ((global_DR_prefix_bits + global_DR_postfix_bits)/(word_size_bits+1));
+#endif
 
  wb_burst_write_retry_full:
     i = 0;
@@ -576,13 +625,17 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
       return err;
    
    // Get us back to shift_dr mode to write a burst
-   //err |= jtag_write_bit(TMS);  // select_dr_scan
-   //err |= jtag_write_bit(0);           // capture_ir
-   //err |= jtag_write_bit(0);           // shift_ir
    err |= tap_set_shift_dr();
 
    // Write a start bit (a 1) so it knows when to start counting
    err |= jtag_write_bit(TDO);
+
+#ifdef ADBG_OPT_HISPEED
+   // If compiled for "hi-speed" mode, we don't read a status bit after every
+   // word written.  This saves a lot of complication!
+   // In this case, the loop below is used only for CRC calculation.
+   err |= jtag_write_stream((uint32_t *) data, (word_count*word_size_bits), 0);  // Write data
+#endif
 
    // Now, repeat...
    for(loopct = 0; i < word_count; i++,loopct++)  // loopct only used to check status... 
@@ -594,9 +647,12 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
       
        crc_calc = adbg_compute_crc(crc_calc, datawords[0], word_size_bits);
 
+#ifndef ADBG_OPT_HISPEED
        // This is an optimization
        if((global_DR_prefix_bits + global_DR_postfix_bits) == 0) {
+	 //#endif
 	 err |= jtag_write_stream(datawords, word_size_bits, 0);  // Write data
+	 //#ifndef ADBG_OPT_HISPEED
 	 err |= jtag_read_write_bit(0, &status);  // Read status bit
 	 if(!status) {
 	   addr = start_address + (i*word_size_bytes);
@@ -622,9 +678,10 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
 	   }
 	 }
        }
+#endif
 
        if(err) {
-	 printf("Error %s getting status bit, retrying.\n", get_err_string(err));  
+	 printf("Error %s during burst write, retrying.\n", get_err_string(err));  
 	 if(!retry_do()) { 
 	   printf("Retry count exceeded!\n"); 
 	   return err|APP_ERR_MAX_RETRY;
@@ -638,7 +695,7 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
       debug("Wrote 0x%0lx", datawords[0]);
      }
     
-   // *** If this is a multi-device chain, at least one status bit will be lost.
+   // *** If this is a multi-device chain (and we're not in hi-speed mode), at least one status bit will be lost.
    // *** If we want to check for it, we'd have to look while sending the CRC, and
    // *** maybe while burning bits to get the match bit.  So, for now, there is a
    // *** hole here.

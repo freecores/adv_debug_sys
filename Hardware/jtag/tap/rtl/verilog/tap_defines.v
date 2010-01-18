@@ -43,7 +43,7 @@
 // CVS Revision History
 //
 // $Log: tap_defines.v,v $
-// Revision 1.1.1.1  2008/05/14 12:07:33  Nathan
+// Revision 1.1.1.1  2008-05-14 12:07:33  Nathan
 // Original from OpenCores
 //
 // Revision 1.3  2004/03/02 17:39:45  mohor

@@ -43,6 +43,9 @@
 // CVS Revision History
 //
 // $Log: timescale.v,v $
+// Revision 1.2  2010-01-08 01:41:08  Nathan
+// Removed unused, non-existant include from CPU behavioral model.  Minor text edits.
+//
 // Revision 1.1  2008/07/08 19:11:56  Nathan
 // Added second testbench to simulate a complete system, including OR1200, wb_conbus, and onchipram.  Renamed sim-only testbench directory from verilog to simulated_system.
 //

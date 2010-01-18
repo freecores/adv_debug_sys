@@ -50,52 +50,52 @@ add wave -noupdate -format Logic /xsv_fpga_top/wb_dm_cab_o
 add wave -noupdate -format Logic /xsv_fpga_top/wb_dm_ack_i
 add wave -noupdate -format Logic /xsv_fpga_top/wb_dm_err_i
 add wave -noupdate -divider {DBG WB BIU}
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/tck_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rst_i
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/data_i
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/data_o
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/addr_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/strobe_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rd_wrn_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_o
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/err_o
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/word_size_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_clk_i
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_adr_o
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_dat_o
-add wave -noupdate -format Literal -radix hexadecimal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_dat_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_cyc_o
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_stb_o
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_sel_o
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_we_o
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_ack_i
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_cab_o
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_err_i
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_cti_o
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_bte_o
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/sel_reg
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/addr_reg
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/data_in_reg
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/data_out_reg
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wr_reg
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/str_sync
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_sync
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/err_reg
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_sync_tff1
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_sync_tff2
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_sync_tff2q
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/str_sync_wbff1
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/str_sync_wbff2
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/str_sync_wbff2q
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/data_o_en
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/rdy_sync_en
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/err_en
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/be_dec
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/start_toggle
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/swapped_data_i
-add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/biu/swapped_data_out
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/wb_fsm_state
-add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/biu/next_fsm_state
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/tck_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rst_i
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/data_i
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/data_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/addr_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/strobe_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rd_wrn_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_o
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/err_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/word_size_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_clk_i
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_adr_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_dat_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_dat_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_cyc_o
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_stb_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_sel_o
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_we_o
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_ack_i
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_cab_o
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_err_i
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_cti_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_bte_o
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/sel_reg
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/addr_reg
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/data_in_reg
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/data_out_reg
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wr_reg
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/str_sync
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_sync
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/err_reg
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_sync_tff1
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_sync_tff2
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_sync_tff2q
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/str_sync_wbff1
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/str_sync_wbff2
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/str_sync_wbff2q
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/data_o_en
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/rdy_sync_en
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/err_en
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/be_dec
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/start_toggle
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/swapped_data_i
+add wave -noupdate -format Literal /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/swapped_data_out
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/wb_fsm_state
+add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/wb_biu_i/next_fsm_state
 add wave -noupdate -divider {DBG WB Module}
 add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/tck_i
 add wave -noupdate -format Logic /xsv_fpga_top/dbg_top/i_dbg_wb/module_tdo_o
@@ -482,7 +482,7 @@ add wave -noupdate -format Logic /xsv_fpga_top/or1200_top/or1200_cpu/or1200_sprs
 add wave -noupdate -format Literal /xsv_fpga_top/or1200_top/or1200_cpu/or1200_sprs/sprs_op
 add wave -noupdate -format Literal /xsv_fpga_top/or1200_top/or1200_cpu/or1200_sprs/unqualified_cs
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {6180 ps} 0}
+WaveRestoreCursors {{Cursor 1} {4278 ps} 0}
 configure wave -namecolwidth 391
 configure wave -valuecolwidth 100
 configure wave -justifyvalue left
@@ -495,5 +495,6 @@ configure wave -gridoffset 0
 configure wave -gridperiod 1
 configure wave -griddelta 40
 configure wave -timeline 0
+configure wave -timelineunits ps
 update
 WaveRestoreZoom {0 ps} {6180 ps}

@@ -1,11 +1,12 @@
 /* rsp-server.c -- Remote Serial Protocol server for GDB
 
 Copyright (C) 2008 Embecosm Limited
+Copyright (C) 2008-2010 Nathan Yawn <nyawn@opencores.net>
 
 Contributor Jeremy Bennett <jeremy.bennett@embecosm.com>
 
 This file was part of Or1ksim, the OpenRISC 1000 Architectural Simulator.
-Adapted for adv_jtag_bridge by Nathan Yawn <nyawn@opencores.org>
+Adapted for adv_jtag_bridge by Nathan Yawn
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free

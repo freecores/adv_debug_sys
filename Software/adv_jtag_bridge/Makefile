@@ -16,6 +16,17 @@ SUPPORT_USB_CABLES=true
 # SUPPORT_USB_CABLES must also be set to 'true' to support FTDI-based cables.
 SUPPORT_FTDI_CABLES=true
 
+# Some users have reported failures with the standard libusb-based USBBlaster
+# driver, but success using a libftdi-based driver.  Set this 'true' to use
+# this libftdi-based driver.  Do not use except as a last resort - this driver
+# does not use the USB-Blaster's high speed transfer mode, making it very slow.
+# SUPPORT_FTDI_CABLES must also be set 'true' to use this driver.
+USE_ALT_FTDI_USBBLASTER_DRIVER=false
+
+# Normal error-checking on every word of a burst write can cause a significant
+# slowdown, especially when using the USB-Blaster cable.  Setting this option
+# true will eliminate this slowdown, at the cost of per-word error checking.
+USE_HISPEED=true
 
 # ----------------------------------------------------------------------------
 # Most people shouldn't have to change anything below this line
@@ -44,6 +55,10 @@ ifeq ($(SUPPORT_LEGACY),true)
 CFLAGS +=  -D__LEGACY__
 endif
 
+ifeq ($(USE_HISPEED),true)
+CFLAGS += -DADBG_OPT_HISPEED
+endif
+
 
 PROGRAMS = adv_jtag_bridge
 
@@ -64,9 +79,15 @@ OBJECTS = adv_jtag_bridge.o rsp-server.o chain_commands.o cable_common.o bsdl.o 
 
 ifeq ($(SUPPORT_USB_CABLES),true)
 CFLAGS += -D__SUPPORT_USB_CABLES__
-HEADERS += cable_usbblaster.h cable_xpc_dlc9.h
-SOURCES += cable_usbblaster.c cable_xpc_dlc9.c
-OBJECTS += cable_usbblaster.o cable_xpc_dlc9.o
+HEADERS += cable_xpc_dlc9.h
+SOURCES += cable_xpc_dlc9.c
+OBJECTS += cable_xpc_dlc9.o
+
+ifeq ($(USE_ALT_FTDI_USBBLASTER_DRIVER),false)
+HEADERS += cable_usbblaster.h
+SOURCES += cable_usbblaster.c
+OBJECTS += cable_usbblaster.o
+endif
 
 ifeq ($(SUPPORT_FTDI_CABLES),true)
 CFLAGS += -D__SUPPORT_FTDI_CABLES__
@@ -74,6 +95,13 @@ LIBS += -lftdi
 HEADERS += cable_ft2232.h
 SOURCES += cable_ft2232.c
 OBJECTS += cable_ft2232.o
+
+ifeq ($(USE_ALT_FTDI_USBBLASTER_DRIVER),true)
+HEADERS += cable_usbblaster.h
+SOURCES += cable_usbblaster_ftdi.c
+OBJECTS += cable_usbblaster_ftdi.o
+endif
+
 endif
 
 # libusb must follow libftdi in the list of libraries

@@ -1,7 +1,7 @@
 /* adv_jtag_bridge.c -- JTAG protocol bridge between GDB and Advanced debug module.
    Copyright(C) 2001 Marko Mlinar, markom@opencores.org
    Code for TCP/IP copied from gdb, by Chris Ziomkowski
-   Refactoring by Nathan Yawn, nyawn@opencores.org
+   Refactoring by Nathan Yawn <nyawn@opencores.org> (C) 2008 - 2010
 
    This file was part of the OpenRISC 1000 Architectural Simulator.
    It is now also used to connect GDB to a running hardware OpenCores / OR1200

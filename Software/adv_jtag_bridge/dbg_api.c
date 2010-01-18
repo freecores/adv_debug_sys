@@ -1,5 +1,5 @@
 /* dbg_api.c -- JTAG protocol bridge between GDB and Advanced debug module.
-   Copyright(C) Nathan Yawn, nyawn@opencores.net
+   Copyright(C) 2009 - 2010 Nathan Yawn, nyawn@opencores.net
    based on code from jp2 by Marko Mlinar, markom@opencores.org
    
    This file contains API functions which may be called from the GDB

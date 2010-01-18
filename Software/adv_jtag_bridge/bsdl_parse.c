@@ -1,5 +1,5 @@
 /* bsdl_parse.c - BSDL parser for the advanced JTAG bridge
-   Copyright(C) 2008 Nathan Yawn
+   Copyright(C) 2008 - 2010 Nathan Yawn
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

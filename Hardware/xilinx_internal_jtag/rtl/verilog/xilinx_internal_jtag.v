@@ -47,6 +47,9 @@
 // CVS Revision History
 //
 // $Log: xilinx_internal_jtag.v,v $
+// Revision 1.4  2009-12-28 01:15:28  Nathan
+// Removed incorrect duplicate assignment of capture_dr_o in SPARTAN2 TAP, per bug report from Raul Fajardo.
+//
 // Revision 1.3  2009/06/16 02:54:23  Nathan
 // Changed some signal names for better consistency between different hardware modules.
 //
@@ -149,7 +152,6 @@ BSCAN_SPARTAN2 BSCAN_SPARTAN2_inst (
 
 assign pause_dr_o = 1'b0;
 assign run_test_idle_o = 1'b0;
-assign capture_dr_o = 1'b0;
 
 // We get one TCK during capture_dr state (low,high,SHIFT goes high on next DRCK high)
 // On that negative edge, set capture_dr, and it will get registered on the rising

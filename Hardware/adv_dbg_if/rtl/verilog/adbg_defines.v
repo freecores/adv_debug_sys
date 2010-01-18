@@ -12,7 +12,7 @@
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2008 Authors                                   ////
+//// Copyright (C) 2008 - 2010 Authors                            ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +40,12 @@
 // CVS Revision History
 //
 // $Log: adbg_defines.v,v $
+// Revision 1.4  2010-01-14 02:03:40  Nathan
+// Make hi-speed mode the default
+//
+// Revision 1.3  2010-01-10 22:53:48  Nathan
+// Added define for hi-speed mode
+//
 // Revision 1.2  2009/05/17 20:54:56  Nathan
 // Changed email address to opencores.org
 //
@@ -79,4 +85,6 @@
 // If CPU_1 sub-module is supported uncomment the folowing line
 //`define DBG_CPU1_SUPPORTED
 
-
+// If this is defined, status bits will be skipped on burst
+// writes to improve download speeds.
+`define ADBG_USE_HISPEED

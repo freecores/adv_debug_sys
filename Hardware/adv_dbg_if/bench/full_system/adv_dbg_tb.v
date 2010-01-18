@@ -40,6 +40,12 @@
 // CVS Revision History
 //
 // $Log: adv_dbg_tb.v,v $
+// Revision 1.6  2010-01-16 02:15:22  Nathan
+// Updated to match changes in hardware.  Added support for hi-speed mode.
+//
+// Revision 1.5  2010-01-08 01:41:07  Nathan
+// Removed unused, non-existant include from CPU behavioral model.  Minor text edits.
+//
 // Revision 1.4  2009/05/17 20:54:55  Nathan
 // Changed email address to opencores.org
 //
@@ -49,8 +55,8 @@
 
 
 `include "tap_defines.v"
-`include "dbg_defines.v"
-`include "dbg_wb_defines.v"
+`include "adbg_defines.v"
+`include "adbg_wb_defines.v"
 
 
 // Polynomial for the CRC calculation
@@ -619,8 +625,7 @@ begin
    write_bit(3'h0);           // capture_ir
    write_bit(3'h0);           // shift_ir
    
-   // Now, repeat...
-   for(i = 0; i < word_count; i=i+1) begin
+`ifdef ADBG_USE_HISPEED
       // Get 1 status bit, then word_size_bytes*8 bits
       status = 1'b0;
       j = 0;
@@ -632,6 +637,24 @@ begin
       if(j > 1) begin
          $display("Took %0d tries before good status bit during burst read", j);
       end
+`endif   
+   
+   // Now, repeat...
+   for(i = 0; i < word_count; i=i+1) begin
+     
+`ifndef ADBG_USE_HISPEED     
+      // Get 1 status bit, then word_size_bytes*8 bits
+      status = 1'b0;
+      j = 0;
+      while(!status) begin
+         read_write_bit(3'h0, status);
+         j = j + 1;
+      end
+      
+      if(j > 1) begin
+         $display("Took %0d tries before good status bit during burst read", j);
+      end
+`endif
   
      jtag_read_write_stream(64'h0, {2'h0,(word_size_bytes<<3)},0,instream);
      //$display("Read 0x%0x", instream[31:0]);
@@ -709,6 +732,7 @@ begin
       compute_crc(crc_calc_i, dataword[31:0], word_size_bits, crc_calc_o);
       crc_calc_i = crc_calc_o;
       
+`ifndef ADBG_USE_HISPEED      
       // Check if WB bus is ready
       // *** THIS WILL NOT WORK IF THERE IS MORE THAN 1 DEVICE IN THE JTAG CHAIN!!!
       status = 1'b0;
@@ -717,7 +741,7 @@ begin
       if(!status) begin
          $display("Bad status bit during burst write, index %d", i);
       end
-      
+`endif      
   
      //$display("Wrote 0x%0x", dataword);
    end

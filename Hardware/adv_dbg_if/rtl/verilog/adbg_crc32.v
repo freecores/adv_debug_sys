@@ -20,12 +20,15 @@
 //       http://www.easics.com
 //
 // Modified by Nathan Yawn for the Advanced Debug Module
-// Changes (C) 2008 Nathan Yawn                                 
+// Changes (C) 2008 - 2010 Nathan Yawn                                 
 ///////////////////////////////////////////////////////////////////////
 //
 // CVS Revision History
 //
 // $Log: adbg_crc32.v,v $
+// Revision 1.2  2010-01-10 22:54:10  Nathan
+// Update copyright dates
+//
 // Revision 1.1  2008/07/22 20:28:29  Nathan
 // Changed names of all files and modules (prefixed an a, for advanced).  Cleanup, indenting.  No functional changes.
 //

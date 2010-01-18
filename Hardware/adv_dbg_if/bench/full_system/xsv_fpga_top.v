@@ -44,6 +44,12 @@
 // CVS Revision History
 //
 // $Log: xsv_fpga_top.v,v $
+// Revision 1.5  2010-01-16 02:15:22  Nathan
+// Updated to match changes in hardware.  Added support for hi-speed mode.
+//
+// Revision 1.4  2010-01-08 01:41:07  Nathan
+// Removed unused, non-existant include from CPU behavioral model.  Minor text edits.
+//
 // Revision 1.3  2008/07/11 08:22:17  Nathan
 // Added code to make the native TAP simulate a Xilinx BSCAN device, and code to simulate the behavior of the xilinx_internal_jtag module.  The adv_dbg_module should get inputs that emulate the xilinx_internal_jtag device outputs.
 //
@@ -396,12 +402,12 @@ tap_top tap (
                 .debug_select_o(debug_select),
                 
                 // TDO signal that is connected to TDI of sub-modules.
-                .tdo_o(debug_tdi), 
+                .tdi_o(debug_tdi), 
                 
                 // TDI signals from sub-modules
-                .debug_tdi_i(debug_tdo),    // from debug module
-                .bs_chain_tdi_i(1'b0), // from Boundary Scan Chain
-                .mbist_tdi_i(1'b0)     // from Mbist Chain
+                .debug_tdo_i(debug_tdo),    // from debug module
+                .bs_chain_tdo_i(1'b0), // from Boundary Scan Chain
+                .mbist_tdo_i(1'b0)     // from Mbist Chain
               );
 
 // This is taken from the xilinx bscan_virtex4.v module
@@ -442,7 +448,7 @@ end
 //
 // Instantiation of the development i/f
 //
-dbg_top dbg_top  (
+adbg_top dbg_top  (
 
 	// JTAG pins
 	.tck_i	( tck2 ),

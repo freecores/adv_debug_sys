@@ -1,10 +1,6 @@
 #ifndef _ADV_JTAG_BRIDGE_H_
 #define _ADV_JTAG_BRIDGE_H_
 
-//#ifndef Boolean
-//#define Boolean int
-//#endif
-
 #ifndef TRUE
 #define TRUE 1
 #endif

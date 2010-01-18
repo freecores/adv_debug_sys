@@ -12,7 +12,7 @@
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2000 - 2008 Authors                            ////
+//// Copyright (C) 2000 - 2010 Authors                            ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adbg_or1k_status_reg.v,v $
+// Revision 1.2  2010-01-10 22:54:10  Nathan
+// Update copyright dates
+//
 // Revision 1.1  2008/07/22 20:28:31  Nathan
 // Changed names of all files and modules (prefixed an a, for advanced).  Cleanup, indenting.  No functional changes.
 //

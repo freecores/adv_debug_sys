@@ -1,5 +1,5 @@
 /* bsdl.c - BSDL file handler for the advanced JTAG bridge
-   Copyright(C) 2008 Nathan Yawn
+   Copyright(C) 2008 - 2010 Nathan Yawn
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <stdlib.h>
+#include <errno.h>
 #include "bsdl.h"
 #include "bsdl_parse.h"
 
@@ -39,6 +41,10 @@ static bsdlinfo *bsdl_head = NULL;
 static bsdlinfo *bsdl_tail = NULL;
 static bsdlinfo *bsdl_last = NULL;  // optimization: pointer to the last struct we used (not necessarily the last in the linked list)
 
+// Scratchpad for full pathname
+int bsdl_scratchpad_size = 0;
+char *bsdl_scratchpad = NULL;
+
 // Prototypes for local functions
 bsdlinfo *get_bsdl_info(uint32_t idcode);
 
@@ -54,6 +60,8 @@ void bsdl_init(void)
   bsdl_dirs[2] = strdup("~/.bsdl");
   bsdl_dirs[3] = strdup(".");
   bsdl_current_dir = 3;
+  bsdl_scratchpad = (char *) malloc(64);
+  bsdl_scratchpad_size = 64;
 }
 
 void bsdl_add_directory(const char *dirname)
@@ -175,7 +183,7 @@ bsdlinfo *get_bsdl_info(uint32_t idcode)
 	  debug("Trying BSDL dir \'%s\'\n", bsdl_dirs[bsdl_current_dir]);
 	  bsdl_open_dir = opendir(bsdl_dirs[bsdl_current_dir]);
 	  if((bsdl_open_dir == NULL) && (bsdl_current_dir > 2))  // Don't warn if default dirs not found
-	    printf("Warning: unable to open BSDL directory \'%s\'\n", bsdl_dirs[bsdl_current_dir]);
+	    printf("Warning: unable to open BSDL directory \'%s\': %s\n", bsdl_dirs[bsdl_current_dir], strerror(errno));
 	  bsdl_current_dir--;
 	  direntry = NULL;
 	}
@@ -186,6 +194,7 @@ bsdlinfo *get_bsdl_info(uint32_t idcode)
 	  direntry = readdir(bsdl_open_dir);
 	  if(direntry == NULL)
 	    {  // We've exhausted this directory
+	      debug("Next bsdl directory\n");
 	      closedir(bsdl_open_dir);
 	      bsdl_open_dir = NULL;
 	      break;
@@ -208,9 +217,30 @@ bsdlinfo *get_bsdl_info(uint32_t idcode)
       if(direntry == NULL)  // We need a new directory
 	continue;
 
+      // Make sure we can hold the full path
+      if((strlen(direntry->d_name) + strlen(bsdl_dirs[bsdl_current_dir+1])+1) >= bsdl_scratchpad_size)
+	{
+	  char *tmp = (char *) realloc(bsdl_scratchpad, (bsdl_scratchpad_size*2));
+	  if(tmp != NULL)
+	    {
+	      debug("Extending bsdl scratchpad to size %i", bsdl_scratchpad_size);
+	      bsdl_scratchpad_size *= 2;  
+	      bsdl_scratchpad = tmp;
+	    }
+	  else
+	    {
+	      fprintf(stderr, "Warning: failed to reallocate BSDL scratchpad to size %i", bsdl_scratchpad_size*2);
+	      continue;
+	    }
+	}
+
+      strcpy(bsdl_scratchpad, bsdl_dirs[bsdl_current_dir+1]);
+      strcat(bsdl_scratchpad, "/");
+      strcat(bsdl_scratchpad, direntry->d_name);
+
       // Parse the BSDL file we found
-      debug("Parsing file \'%s\'\n", direntry->d_name);
-      ptr = parse_extract_values(direntry->d_name);
+      debug("Parsing file \'%s\'\n", bsdl_scratchpad);
+      ptr = parse_extract_values(bsdl_scratchpad);
       
       // If we got good data...
       if(ptr != NULL)

@@ -1,7 +1,7 @@
 /* or32_selftest.c -- JTAG protocol bridge between GDB and Advanced debug module.
    Copyright(C) 2001 Marko Mlinar, markom@opencores.org
    Code for TCP/IP copied from gdb, by Chris Ziomkowski
-   Refactoring and USB support by Nathan Yawn
+   Refactoring and USB support by Nathan Yawn, (C) 2008-2010
    
    This file contains functions which perform high-level transactions
    on a JTAG chain and debug unit, such as setting a value in the TAP IR

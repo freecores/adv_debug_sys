@@ -43,7 +43,7 @@
 // CVS Revision History
 //
 // $Log: dbg_comm_vpi.v,v $
-// Revision 1.2  2009/05/17 20:55:57  Nathan
+// Revision 1.2  2009-05-17 20:55:57  Nathan
 // Changed email address to opencores.org
 //
 // Revision 1.1  2008/07/26 17:33:20  Nathan

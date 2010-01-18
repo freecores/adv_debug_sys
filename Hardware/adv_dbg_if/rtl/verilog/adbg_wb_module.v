@@ -12,7 +12,7 @@
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2008        Authors                            ////
+//// Copyright (C) 2008-2010        Authors                       ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adbg_wb_module.v,v $
+// Revision 1.5  2010-01-13 00:55:45  Nathan
+// Created hi-speed mode for burst reads.  This will probably be most beneficial to the OR1K module, as GDB does a burst read of all the GPRs each time a microinstruction is single-stepped.
+//
 // Revision 1.2  2009/05/17 20:54:57  Nathan
 // Changed email address to opencores.org
 //
@@ -54,7 +57,7 @@
 // in the input shift register after e.g. a burst read.
 //
 
-
+`include "adbg_defines.v"
 `include "adbg_wb_defines.v"
 
 // Top module
@@ -191,7 +194,11 @@ module adbg_wb_module (
    assign     operation_in = data_register_i[51:48];
    assign     address_data_in = data_register_i[47:16];
    assign     count_data_in = data_register_i[15:0];
+`ifdef ADBG_USE_HISPEED
+   assign data_to_biu = {tdi_i,data_register_i[52:22]};
+`else
    assign     data_to_biu = data_register_i[52:21];
+`endif
    assign     reg_select_data = data_register_i[47:(47-(`DBG_WB_REGSELECT_SIZE-1))];
 
    ////////////////////////////////////////////////
@@ -298,7 +305,11 @@ module adbg_wb_module (
 	  end
 	else if(error_reg_en && !internal_reg_error[0])
 	  begin
+`ifdef ADBG_USE_HISPEED
+             if(biu_err || (!biu_ready))  internal_reg_error[0] = 1'b1;	    
+`else
              if(biu_err)  internal_reg_error[0] = 1'b1;
+`endif
              else if(biu_strobe) internal_reg_error[32:1] = address_counter;
 	  end
 	else if(biu_strobe && !internal_reg_error[0]) internal_reg_error[32:1] = address_counter;  // When no error, latch this whether error_reg_en or not
@@ -365,9 +376,9 @@ module adbg_wb_module (
    assign word_count_zero = (word_count == 16'h0);
 
    /////////////////////////////////////////////////////
-			    // Output register and TDO output MUX
+   // Output register and TDO output MUX
 
-			    assign out_reg_data = (out_reg_data_sel) ? data_from_internal_reg : {1'b0,data_from_biu};
+  assign out_reg_data = (out_reg_data_sel) ? data_from_internal_reg : {1'b0,data_from_biu};
 
    always @ (posedge tck_i or posedge rst_i)
      begin
@@ -509,7 +520,9 @@ module adbg_wb_module (
 	    begin
 	       if(update_dr_i) module_next_state <= `STATE_idle; 
 	       else if(bit_count_max && word_count_zero) module_next_state <= `STATE_Rcrc;
+`ifndef ADBG_USE_HISPEED   	         
 	       else if(bit_count_max) module_next_state <= `STATE_Rstatus;
+`endif	         
 	       else module_next_state <= `STATE_Rburst;
 	    end
 	  `STATE_Rcrc:
@@ -533,8 +546,16 @@ module adbg_wb_module (
 	    end
 	  `STATE_Wburst:
 	    begin
-	       if(update_dr_i)  module_next_state <= `STATE_idle;  // client terminated early    
-	       else if(bit_count_max) module_next_state <= `STATE_Wstatus;
+	       if(update_dr_i)  module_next_state <= `STATE_idle;  // client terminated early
+               else if(bit_count_max)
+		 begin
+`ifdef ADBG_USE_HISPEED
+		    if(word_count_zero) module_next_state <= `STATE_Wcrc;
+		    else module_next_state <= `STATE_Wburst;
+`else
+		    module_next_state <= `STATE_Wstatus;
+`endif
+		 end
 	       else module_next_state <= `STATE_Wburst;
 	    end
 	  `STATE_Wstatus:
@@ -662,6 +683,24 @@ module adbg_wb_module (
 	       crc_en <= 1'b1;
 	       crc_in_sel <= 1'b0;  // read data in output shift register LSB (tdo)
 	       top_inhibit_o <= 1'b1;  // in case of early termination
+	       
+`ifdef ADBG_USE_HISPEED
+	       if(bit_count_max)
+	       begin
+	         error_reg_en <= 1'b1;       // Check the wb_error bit
+	         out_reg_data_sel <= 1'b0;  // select BIU data
+	         out_reg_ld_en <= 1'b1;
+	         bit_ct_rst <= 1'b1;
+	         word_ct_sel <= 1'b1;
+	         word_ct_en <= 1'b1;
+	         if(!(decremented_word_count == 0) && !word_count_zero)  // Start a biu read transaction
+	         begin
+	           biu_strobe <= 1'b1;
+	           addr_sel <= 1'b1;
+	           addr_ct_en <= 1'b1;
+	         end
+	       end
+`endif	   
 	    end
 
 	  `STATE_Rcrc:
@@ -696,6 +735,24 @@ module adbg_wb_module (
 	       crc_en <= 1'b1;
 	       crc_in_sel <= 1'b1;  // read data from tdi_i
 	       top_inhibit_o <= 1'b1;    // in case of early termination
+
+`ifdef ADBG_USE_HISPEED
+	       // It would be better to do this in STATE_Wstatus, but we don't use that state 
+	       // if ADBG_USE_HISPEED is defined.  
+	       if(bit_count_max)
+		      begin
+		      error_reg_en <= 1'b1;       // Check the wb_error bit
+		      bit_ct_rst <= 1'b1;  // Zero the bit count
+		      // start transaction. Can't do this here if not hispeed, biu_ready
+		      // is the status bit, and it's 0 if we start a transaction here.
+		      biu_strobe <= 1'b1;  // Start a BIU transaction
+		      addr_ct_en <= 1'b1;  // Increment thte address counter
+		      // Also can't dec the byte count yet unless hispeed,
+		      // that would skip the last word.
+		      word_ct_sel <= 1'b1;  // Decrement the byte count
+		      word_ct_en <= 1'b1;
+		      end
+`endif		    
 	    end
 
 	  `STATE_Wstatus:

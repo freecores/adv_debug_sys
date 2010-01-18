@@ -1,6 +1,6 @@
 
-#ifndef _JP2_SELFTEST_H_
-#define _JP2_SELFTEST_H_
+#ifndef _OR32_SELFTEST_H_
+#define _OR32_SELFTEST_H_
 
 // Static memory controller defines
 #define MC_BAR_0         0x00
@@ -74,5 +74,5 @@ int test_sram(void);
 int test_or1k_cpu0(void);
 //int test_8051_cpu1(void);
 
-#endif  // _JP2_SELFTEST_H_
+#endif  // _OR32_SELFTEST_H_
 

@@ -1,7 +1,7 @@
 /* cable_common.c -- Interface to the low-level cable drivers
    Copyright (C) 2001 Marko Mlinar, markom@opencores.org
    Copyright (C) 2004 György Jeney, nog@sdf.lonestar.org
-   Copyright (C) 2008 Nathan Yawn, nathan.yawn@opencores.org
+   Copyright (C) 2008 - 2010 Nathan Yawn, nathan.yawn@opencores.org
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

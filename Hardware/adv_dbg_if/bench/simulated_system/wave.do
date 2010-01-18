@@ -160,52 +160,52 @@ add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu_rst
 add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/module_state
 add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/module_next_state
 add wave -noupdate -divider {DBG WB module BIU internals}
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/tck_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rst_i
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/data_i
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/data_o
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/addr_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/strobe_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rd_wrn_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/err_o
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/word_size_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_clk_i
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_adr_o
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_dat_o
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_dat_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_cyc_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_stb_o
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_sel_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_we_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_ack_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_cab_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_err_i
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_cti_o
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_bte_o
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/sel_reg
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/addr_reg
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/data_in_reg
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/data_out_reg
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wr_reg
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/str_sync
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_sync
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/err_reg
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_sync_tff1
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_sync_tff2
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_sync_tff2q
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/str_sync_wbff1
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/str_sync_wbff2
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/str_sync_wbff2q
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/data_o_en
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/rdy_sync_en
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/err_en
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/be_dec
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/start_toggle
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/swapped_data_i
-add wave -noupdate -format Literal -radix hexadecimal /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/swapped_data_out
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/wb_fsm_state
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/biu/next_fsm_state
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/tck_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rst_i
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/data_i
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/data_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/addr_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/strobe_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rd_wrn_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_o
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/err_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/word_size_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_clk_i
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_adr_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_dat_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_dat_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_cyc_o
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_stb_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_sel_o
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_we_o
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_ack_i
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_cab_o
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_err_i
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_cti_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_bte_o
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/sel_reg
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/addr_reg
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/data_in_reg
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/data_out_reg
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wr_reg
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/str_sync
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_sync
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/err_reg
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_sync_tff1
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_sync_tff2
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_sync_tff2q
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/str_sync_wbff1
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/str_sync_wbff2
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/str_sync_wbff2q
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/data_o_en
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/rdy_sync_en
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/err_en
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/be_dec
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/start_toggle
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/swapped_data_i
+add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/swapped_data_out
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/wb_fsm_state
+add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_wb/wb_biu_i/next_fsm_state
 add wave -noupdate -divider {DBG CPU0 module signals}
 add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/tck_i
 add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/module_tdo_o
@@ -314,26 +314,8 @@ add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/or1k_
 add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/or1k_biu_i/cpu_fsm_state
 add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/or1k_biu_i/next_fsm_state
 add wave -noupdate -divider {CPU0 Status register internals}
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/data_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/we_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/tck_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/bp_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/rst_i
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_clk_i
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/ctrl_reg_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_stall_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_rst_o
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_reset
-add wave -noupdate -format Literal /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_op_out
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_bp
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_bp_csff
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_bp_tck
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_reg
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_reg_csff
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/stall_reg_cpu
-add wave -noupdate -format Logic /adv_debug_tb/i_dbg_module/i_dbg_cpu_or1k/statusreg_i/cpu_reset_csff
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {50652 ns} 0}
+WaveRestoreCursors {{Cursor 1} {31260960 ps} 0}
 configure wave -namecolwidth 409
 configure wave -valuecolwidth 100
 configure wave -justifyvalue left
@@ -346,5 +328,6 @@ configure wave -gridoffset 0
 configure wave -gridperiod 1
 configure wave -griddelta 40
 configure wave -timeline 0
+configure wave -timelineunits ps
 update
-WaveRestoreZoom {38962 ns} {65318 ns}
+WaveRestoreZoom {38962 ns} {70222960 ps}

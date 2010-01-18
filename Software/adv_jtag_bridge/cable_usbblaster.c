@@ -1,5 +1,5 @@
 /* cable_usbblaster.c - Altera USB Blaster driver for the Advanced JTAG Bridge
-   Copyright (C) 2008 Nathan Yawn, nathan.yawn@opencores.org
+   Copyright (C) 2008 - 2010 Nathan Yawn, nathan.yawn@opencores.org
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include <unistd.h>  // for usleep()
 #include <stdlib.h>  // for sleep()
 #include <arpa/inet.h> // for htons()
+#include <string.h>  // for memcpy()
 
 #include "usb.h"  // libusb header
 #include "cable_common.h"
@@ -51,11 +52,19 @@
 
 
 static struct usb_device *usbblaster_device;
+static usb_dev_handle *h_device;
 
-static char *data_out_scratchpad = NULL;
-static int data_out_scratchpad_size = 0;
-static char *data_in_scratchpad = NULL;
-static int data_in_scratchpad_size = 0;
+// libusb seems to give an error if we ask for a transfer larger than 64 bytes
+// USBBlaster also has a max. single transaction of 63 bytes.
+// So, size the max read and write to create 64-byte USB packets (reads have 2 useless bytes prepended)
+#define USBBLASTER_MAX_WRITE 63
+static char data_out_scratchpad[USBBLASTER_MAX_WRITE+1];
+#define USBBLASTER_MAX_READ  62
+static char data_in_scratchpad[USBBLASTER_MAX_READ+2];
+
+int cable_usbblaster_open_cable(void);
+void cable_usbblaster_close_cable(void);
+//int cable_usbblaster_reopen_cable(void);
 
 ///////////////////////////////////////////////////////////////////////////////
 /*-------------------------------------[ USB Blaster specific functions ]---*/
@@ -135,7 +144,7 @@ int cable_usbblaster_init(){
     return err;
   }
 
-  usb_dev_handle *h_device = usb_open(usbblaster_device);
+  h_device = usb_open(usbblaster_device);
   
   if(h_device == NULL)
     {
@@ -155,22 +164,8 @@ int cable_usbblaster_init(){
   if(err |= usbblaster_enumerate_bus())
     return err;
 
-  h_device = usb_open(usbblaster_device);
-  if(h_device == NULL)
-    {
-      fprintf(stderr, "Init failed to open USB device for initialization\n");
-      return APP_ERR_USB;
-    }
-
-  // set the configuration
-  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue))
-    {
-      usb_close(h_device);
-      fprintf(stderr, "USB-reset failed to set configuration\n");
-      return APP_ERR_NONE;
-    }
-
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+  err = cable_usbblaster_open_cable();
+  if(err != APP_ERR_NONE) return err;
 
   //usb_clear_halt(h_device, EP1);
   //usb_clear_halt(h_device, EP2);
@@ -200,20 +195,7 @@ int cable_usbblaster_init(){
   if (rv < 0){  // But if we fail, who cares?
     fprintf(stderr, "\nWarning: Failed to read post-init bytes from the EP1 FIFO (%i):\n%s", rv, usb_strerror());
   } 
-	
-  if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
-    usb_close(h_device);
-    fprintf(stderr, "USB-out failed to release interface\n");
-    return APP_ERR_USB;
-  }
-
-  usb_close(h_device);
-
-  data_out_scratchpad = (char *) malloc(64);
-  data_out_scratchpad_size = 64;
-  data_in_scratchpad = (char *) malloc(64);
-  data_in_scratchpad_size = 64;
-  
+ 
   return APP_ERR_NONE;
 }
 
@@ -221,29 +203,15 @@ int cable_usbblaster_init(){
 int cable_usbblaster_out(uint8_t value)
 {
   int             rv;                  // to catch return values of functions
-  usb_dev_handle *h_device;            // handle on the ubs device
   char out;
   int err = APP_ERR_NONE;
 
-  // open the device
-  h_device = usb_open(usbblaster_device);
-  if (h_device == NULL){
-    usb_close(h_device);
-    fprintf(stderr, "USB-out failed to open device\n");
-    return APP_ERR_USB;
+  // open the device, if necessary
+  if(h_device == NULL) {
+    rv = cable_usbblaster_open_cable();
+    if(rv != APP_ERR_NONE) return rv;
   }
- 
-  // set the configuration
-  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue))
-    {
-      usb_close(h_device);
-      fprintf(stderr, "USB-out failed to set configuration\n");
-      return APP_ERR_USB;
-    }
 
-  // wait until device is ready
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
-  
   out = (USBBLASTER_CMD_OE | USBBLASTER_CMD_nCS);  // Set output enable (appears necessary) and nCS (necessary for byte-shift reads)
 
   // Translate to USB blaster protocol
@@ -262,14 +230,6 @@ int cable_usbblaster_out(uint8_t value)
     err |= APP_ERR_USB;
   }
 
-  // release the interface cleanly
-  if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
-    fprintf(stderr, "Warning: failed to release usb interface after write\n");
-    err |= APP_ERR_USB;
-  }
-  
-  // close the device
-  usb_close(h_device);
   return err;
 }
 
@@ -277,7 +237,6 @@ int cable_usbblaster_out(uint8_t value)
 int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
 {
   int             rv;                  // to catch return values of functions
-  usb_dev_handle *h_device;            // handle on the usb device
   char ret[3] = {0,0,0};               // Two useless bytes (0x31,0x60) always precede the useful byte
   char out;
 
@@ -293,28 +252,17 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
   if(value & TMS_BIT)
     out |= USBBLASTER_CMD_TMS;
 
-
-  // open the device
-  h_device = usb_open(usbblaster_device);
-  if (h_device == NULL){
-    return APP_ERR_USB;
+  // open the device, if necessary
+  if(h_device == NULL) {
+    rv = cable_usbblaster_open_cable();
+    if(rv != APP_ERR_NONE) return rv;
   }
- 
-  // set the configuration
-  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue)){
-    usb_close(h_device);
-    return APP_ERR_USB;
-  }
-
-  // wait until device is ready
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
 
   // Send a read request
   rv = usb_bulk_write(h_device, EP2, &out, 1, USB_TIMEOUT);
   if (rv != 1){
     fprintf(stderr, "\nFailed to write a read request to the EP2 FIFO:\n%s", usb_strerror());
-    usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-    usb_close(h_device);
+    cable_usbblaster_close_cable();
     return APP_ERR_USB;
   }
 
@@ -327,8 +275,7 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
     rv = usb_bulk_read(h_device, EP1, ret, 3, USB_TIMEOUT);
     if (rv < 0){
       fprintf(stderr, "\nFailed to read from the EP1 FIFO (%i):\n%s", rv, usb_strerror());
-      usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-      usb_close(h_device);
+      cable_usbblaster_close_cable();
       return APP_ERR_USB;
     }
 
@@ -336,17 +283,6 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
     retries++;
   }
   while((rv < 3) && (retries < 20));
-
-
-  // release the interface cleanly
-  if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
-    fprintf(stderr, "Warning: failed to release USB interface after read\n");
-    usb_close(h_device);
-    return APP_ERR_USB;
-  }
-
-  // close the device
-  usb_close(h_device);
 
   *in_bit = (ret[2] & 0x01); /* TDO is bit 0.  USB-Blaster may also set bit 1. */
   return APP_ERR_NONE;
@@ -358,13 +294,13 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
 // bit 0 of second byte received ... etc.
 int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_bit) {
   int             rv;                  // to catch return values of functions
-  usb_dev_handle *h_device;            // handle on the ubs device
   unsigned int bytes_to_transfer, leftover_bit_length;
   uint32_t leftover_bits;
-  unsigned char i;
+  int bytes_remaining;
+  char *xfer_ptr;
   int err = APP_ERR_NONE;
 
-  //printf("cable_usbblaster_write_stream(0x%X, %d, %i)\n", stream, len, set_last_bit);
+  debug("cable_usbblaster_write_stream(0x%X, %d, %i)\n", stream, len, set_last_bit);
 
   // This routine must transfer at least 8 bits.  Additionally, TMS (the last bit)
   // cannot be set by 'byte shift mode'.  So we need at least 8 bits to transfer,
@@ -377,7 +313,7 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
     leftover_bit_length += 8;
   }
 
-  //printf("bytes_to_transfer: %d. leftover_bit_length: %d\n", bytes_to_transfer, leftover_bit_length);
+  debug("bytes_to_transfer: %d. leftover_bit_length: %d\n", bytes_to_transfer, leftover_bit_length);
 
   // Not enough bits for high-speed transfer. bit-bang.
   if(bytes_to_transfer == 0) {
@@ -385,73 +321,43 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
   }
 
   // Bitbang functions leave clock high.  USBBlaster assumes clock low at the start of a burst.
-  // Lower the clock.
-  err |= cable_usbblaster_out(0);
+  err |= cable_usbblaster_out(0);  // Lower the clock.
 
   // Set leftover bits
   leftover_bits = (stream[bytes_to_transfer>>2] >> ((bytes_to_transfer & 0x3) * 8)) & 0xFF;
 
-  //printf("leftover_bits: 0x%X, LSB_first_xfer = %d\n", leftover_bits, LSB_first_xfer);
+  debug("leftover_bits: 0x%X, LSB_first_xfer = %d\n", leftover_bits, LSB_first_xfer);
 
-  // open the device
-  h_device = usb_open(usbblaster_device);
-  if (h_device == NULL){
-    usb_close(h_device);
-    fprintf(stderr, "USBBlaster_write_stream failed to open device\n");
-    return APP_ERR_USB;
+  // open the device, if necessary
+  if(h_device == NULL) {
+    rv = cable_usbblaster_open_cable();
+    if(rv != APP_ERR_NONE) return rv;
   }
  
-  // set the configuration
-  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue))
-  {
-    usb_close(h_device);
-    fprintf(stderr, "USBBlaster_write_stream failed to set configuration\n");
-    return APP_ERR_USB;
-  }
+  bytes_remaining = bytes_to_transfer;
+  xfer_ptr = (char *) stream;
+  while(bytes_remaining > 0)
+    {
+      int bytes_this_xfer = (bytes_remaining > USBBLASTER_MAX_WRITE) ? USBBLASTER_MAX_WRITE:bytes_remaining;
 
-  // wait until device is ready
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+      data_out_scratchpad[0] = USBBLASTER_CMD_BYTESHIFT | (bytes_this_xfer & 0x3F);
+      memcpy(&data_out_scratchpad[1], xfer_ptr, bytes_this_xfer);
+      
+      /* printf("Data packet: ");
+	 for(i = 0; i <= bytes_to_transfer; i++)
+	 printf("0x%X ", out[i]);
+	 printf("\n"); */
+      
+      rv = usb_bulk_write(h_device, EP2, data_out_scratchpad, bytes_this_xfer+1, USB_TIMEOUT);
+      if (rv != (bytes_this_xfer+1)){
+	fprintf(stderr, "\nFailed to write to the FIFO (rv = %d):\n%s", rv, usb_strerror());
+	err |= APP_ERR_USB;
+	break;
+      }
 
- 
-  // Copy stream into out.  Not pretty, but better than changing the interface to the upper layers;
-  // 32 bits are easier to work with than 8 bits in upper layers.
-  if(data_out_scratchpad_size < (bytes_to_transfer+1)) {
-    free(data_out_scratchpad);
-    data_out_scratchpad = (char *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
-    if(data_out_scratchpad == NULL) {
-      usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-      usb_close(h_device);
-      return APP_ERR_MALLOC;
+      bytes_remaining -= bytes_this_xfer;
+      xfer_ptr += bytes_this_xfer;
     }
-    data_out_scratchpad_size = bytes_to_transfer+1;
-  }
-
-  data_out_scratchpad[0] = USBBLASTER_CMD_BYTESHIFT | (bytes_to_transfer & 0x3F);
-  for(i = 0; i < bytes_to_transfer; i++) {
-    data_out_scratchpad[i+1] = (stream[i>>2] >> (8*(i&0x3))) & 0xFF;
-  }
-
-
-  /*
-    printf("Data packet: ");
-    for(i = 0; i <= bytes_to_transfer; i++)
-    printf("0x%X ", out[i]);
-    printf("\n");
-  */
-
-  rv = usb_bulk_write(h_device, EP2, data_out_scratchpad, bytes_to_transfer+1, USB_TIMEOUT);
-  if (rv != (bytes_to_transfer+1)){
-    fprintf(stderr, "\nFailed to write to the FIFO (rv = %d):\n%s", rv, usb_strerror());
-    err |= APP_ERR_USB;
-  }
-
-  // release the interface cleanly
-  if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
-	fprintf(stderr, "Warning: failed to release usb interface after stream write\n");
-  }
-  
-  // close the device
-  usb_close(h_device);
 
   // if we have a number of bits not divisible by 8, or we need to set TMS...
   if(leftover_bit_length != 0) {
@@ -465,11 +371,12 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
 
 int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int len_bits, int set_last_bit) {
   int             rv;                  // to catch return values of functions
-  usb_dev_handle *h_device;            // handle on the ubs device
-  unsigned int bytes_received = 0;
+  unsigned int bytes_received = 0, total_bytes_received = 0;
   unsigned int bytes_to_transfer, leftover_bit_length;
   uint32_t leftover_bits, leftovers_received = 0;
-  unsigned char i;
+  unsigned char i;  
+  int bytes_remaining;
+  char *xfer_ptr;
   int retval = APP_ERR_NONE;
 
   debug("cable_usbblaster_read_stream(0x%X, %d, %i)\n", outstream[0], len_bits, set_last_bit);
@@ -485,12 +392,11 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
     leftover_bit_length += 8;
   }
 
-  //printf("RD bytes_to_transfer: %d. leftover_bit_length: %d\n", bytes_to_transfer, leftover_bit_length);
+  debug("RD bytes_to_transfer: %d. leftover_bit_length: %d\n", bytes_to_transfer, leftover_bit_length);
 
   // Not enough bits for high-speed transfer. bit-bang.
   if(bytes_to_transfer == 0) {
     return cable_common_read_stream(outstream, instream, len_bits, set_last_bit);
-    //retval |= cable_common_read_stream(&leftover_bits, &leftovers_received, leftover_bit_length, set_last_bit);
   }
 
   // Bitbang functions leave clock high.  USBBlaster assumes clock low at the start of a burst.
@@ -498,126 +404,78 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
   retval |= cable_usbblaster_out(0);
 
   // Zero the input, since we add new data by logical-OR
-  for(i = 0; i < (len_bits/32); i++)
-    instream[i] = 0;
-  if(len_bits % 32)
-    instream[i] = 0;
+  for(i = 0; i < (len_bits/32); i++)  instream[i] = 0;
+  if(len_bits % 32)                   instream[i] = 0;
 
   // Set leftover bits
   leftover_bits = (outstream[bytes_to_transfer>>2] >> ((bytes_to_transfer & 0x3) * 8)) & 0xFF;
   debug("leftover_bits: 0x%X\n", leftover_bits);
 
-  // open the device
-  h_device = usb_open(usbblaster_device);
-  if (h_device == NULL){
-	usb_close(h_device);
-	fprintf(stderr, "USBBlaster_read_stream failed to open device\n");
+  // open the device, if necessary
+  if(h_device == NULL) {
+    rv = cable_usbblaster_open_cable();
+    if(rv != APP_ERR_NONE) return rv;
+  }
+
+  // Transfer the data.  USBBlaster has a max transfer size of 64 bytes.
+  bytes_remaining = bytes_to_transfer;
+  xfer_ptr = (char *) outstream;
+  total_bytes_received = 0;
+  while(bytes_remaining > 0)
+    {
+      int bytes_this_xfer = (bytes_remaining > USBBLASTER_MAX_READ) ? USBBLASTER_MAX_READ:bytes_remaining;
+      data_out_scratchpad[0] = USBBLASTER_CMD_BYTESHIFT | USBBLASTER_CMD_READ | (bytes_this_xfer & 0x3F);
+      memcpy(&data_out_scratchpad[1], xfer_ptr, bytes_this_xfer);
+
+      /* debug("Data packet: ");
+	 for(i = 0; i <= bytes_to_transfer; i++) debug("0x%X ", data_out_scratchpad[i]);
+	 debug("\n"); */
+
+      rv = usb_bulk_write(h_device, EP2, data_out_scratchpad, bytes_this_xfer+1, USB_TIMEOUT);
+      if (rv != (bytes_this_xfer+1)){
+	fprintf(stderr, "\nFailed to write to the EP2 FIFO (rv = %d):\n%s", rv, usb_strerror());
+	cable_usbblaster_close_cable();
 	return APP_ERR_USB;
-  }
- 
-  // set the configuration
-  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue))
-  {
-	usb_close(h_device);
-	fprintf(stderr, "USBBlaster_read_stream failed to set configuration\n");
-	return APP_ERR_USB;
-  }
+      }
 
-  // wait until device is ready
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+      // receive the response
+      // Sometimes, we do a read but just get the useless 0x31,0x60 chars...
+      // retry until we get at least 3 bytes (with real data), for a reasonable number of retries.
+      int retries = 0;
+      bytes_received = 0;
+      do {
+	debug("stream read, bytes_this_xfer = %i, bytes_received = %i\n", bytes_this_xfer, bytes_received);
+	rv = usb_bulk_read(h_device, EP1, data_in_scratchpad, (bytes_this_xfer-bytes_received)+2, USB_TIMEOUT);
+	if (rv < 0){
+	  fprintf(stderr, "\nFailed to read stream from the EP1 FIFO (%i):\n%s", rv, usb_strerror());
+	  cable_usbblaster_close_cable();
+	  return APP_ERR_USB;
+	}
 
-  
+	/* debug("Read %i bytes: ", rv);
+	   for(i = 0; i < rv; i++)
+	   debug("0x%X ", data_in_scratchpad[i]);
+	   debug("\n"); */
+	
+	if(rv > 2) retries = 0;
+	else retries++;
+	
+	/* Put the received bytes into the return stream.  Works for either endian. */
+	for(i = 0; i < (rv-2); i++) {
+	  // Do size/type promotion before shift.  Must cast to unsigned, else the value may be
+	  // sign-extended through the upper 16 bits of the uint32_t.
+	  uint32_t tmp = (unsigned char) data_in_scratchpad[2+i];
+	  instream[(total_bytes_received+i)>>2] |= (tmp << ((i & 0x3)*8));
+	}
 
-  // Copy stream into out.  Not pretty, but better than changing the interface to the upper layers;
-  // 32 bits are easier to work with than 8 bits in upper layers.
-  if(data_out_scratchpad_size < (bytes_to_transfer+1)) {
-    free(data_out_scratchpad);
-    data_out_scratchpad = (char *) malloc(bytes_to_transfer+1);  // free/malloc instead of realloc will save copy time
-    if(data_out_scratchpad == NULL) {
-      usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-      usb_close(h_device);
-      return APP_ERR_MALLOC;
+	bytes_received += (rv-2);
+	total_bytes_received += (rv-2);
+      }
+      while((bytes_received < bytes_this_xfer) && (retries < 15));
+
+      bytes_remaining -= bytes_this_xfer;
+      xfer_ptr += bytes_this_xfer;
     }
-    data_out_scratchpad_size = bytes_to_transfer+1;
-  }
-
-  data_out_scratchpad[0] = USBBLASTER_CMD_BYTESHIFT | USBBLASTER_CMD_READ | (bytes_to_transfer & 0x3F);  // Set command byte
-  for(i = 0; i < bytes_to_transfer; i++) {
-    data_out_scratchpad[i+1] = (outstream[i>>2] >> (8*(i&0x3))) & 0xFF;
-  }
-
-  /*
-  debug("Data packet: ");
-  for(i = 0; i <= bytes_to_transfer; i++)
-    debug("0x%X ", data_out_scratchpad[i]);
-  debug("\n");
-  */
-
-  rv = usb_bulk_write(h_device, EP2, data_out_scratchpad, bytes_to_transfer+1, USB_TIMEOUT);
-  if (rv != (bytes_to_transfer+1)){
-    fprintf(stderr, "\nFailed to write to the EP2 FIFO (rv = %d):\n%s", rv, usb_strerror());
-    usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-    usb_close(h_device);
-    return APP_ERR_USB;
-  }
-
-
-  // Make sure we have a big-enough buffer to hold the incoming data
-  if(data_in_scratchpad_size < (bytes_to_transfer+2)) {
-    free(data_in_scratchpad);
-    data_in_scratchpad = (char *) malloc(bytes_to_transfer+2);  // free/malloc instead of realloc will save copy time
-    if(data_in_scratchpad == NULL) {
-      usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-      usb_close(h_device);
-      return APP_ERR_MALLOC;
-    }
-    data_in_scratchpad_size = (bytes_to_transfer+2);
-  }
-
-  // receive the response
-  // Sometimes, we do a read but just get the useless 0x31,0x60 chars...
-  // retry until we get at least 3 bytes (with real data), for a reasonable number of retries.
-  int retries = 0;
-  bytes_received = 0;
-  do {
-    rv = usb_bulk_read(h_device, EP1, data_in_scratchpad, (bytes_to_transfer-bytes_received)+2, USB_TIMEOUT);
-    if (rv < 0){
-      fprintf(stderr, "\nFailed to read stream from the EP1 FIFO (%i):\n%s", rv, usb_strerror());
-      usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
-      usb_close(h_device);
-      return APP_ERR_USB;
-    }
-
-    /*
-    debug("Read %i bytes: ", rv);
-    for(i = 0; i < rv; i++)
-      debug("0x%X ", data_in_scratchpad[i]);
-    debug("\n");
-    */
-
-    if(rv > 2) retries = 0;
-    else retries++;
-
-    /* Put the received bytes into the return stream.  */
-    for(i = 0; i < (rv-2); i++) {
-      // Do size/type promotion before shift.  Must cast to unsigned, else the value may be
-      // sign-extended through the upper 16 bits of the uint32_t.
-      uint32_t tmp = (unsigned char) data_in_scratchpad[2+i];
-      instream[(bytes_received+i)>>2] |= (tmp << ((i & 0x3)*8));
-    }
-
-    bytes_received += (rv-2);
-  }
-  while((bytes_received < bytes_to_transfer) && (retries < 15));
-
-
-  // release the interface cleanly
-  if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
-	fprintf(stderr, "Warning: failed to release usb interface after stream read\n");
-  }
-  
-  // close the device
-  usb_close(h_device);
 
   // if we have a number of bits not divisible by 8
   if(leftover_bit_length != 0) {
@@ -637,3 +495,52 @@ int cable_usbblaster_opt(int c, char *str)
 }
 
 
+int cable_usbblaster_open_cable(void)
+{
+  // open the device
+  h_device = usb_open(usbblaster_device);
+  if (h_device == NULL){
+	fprintf(stderr, "USBBlaster driver failed to open device\n");
+	return APP_ERR_USB;
+  }
+ 
+  // set the configuration
+  if (usb_set_configuration(h_device, usbblaster_device->config->bConfigurationValue))
+  {
+	usb_close(h_device);
+	h_device = NULL;
+	fprintf(stderr, "USBBlaster driver failed to set configuration\n");
+	return APP_ERR_USB;
+  }
+
+  // wait until device is ready
+  // *** TODO: add timeout
+  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+
+  return APP_ERR_NONE;
+}
+
+
+void cable_usbblaster_close_cable(void)
+{
+  if(h_device != NULL) {
+    // release the interface cleanly
+    if (usb_release_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber)){
+      fprintf(stderr, "Warning: failed to release usb interface\n");
+    }
+  
+    // close the device
+    usb_close(h_device);
+    h_device = NULL;
+  }
+
+  return;
+}
+
+/*
+int cable_usbblaster_reopen_cable(void)
+{
+  cable_usbblaster_close_cable();
+  return cable_usbblaster_open_cable();
+}
+*/

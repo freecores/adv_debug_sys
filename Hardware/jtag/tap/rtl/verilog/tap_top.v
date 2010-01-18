@@ -43,7 +43,7 @@
 // CVS Revision History
 //
 // $Log: tap_top.v,v $
-// Revision 1.5  2009/06/16 02:53:58  Nathan
+// Revision 1.5  2009-06-16 02:53:58  Nathan
 // Changed some signal names for better consistency between different hardware modules. Removed stale CVS log/comments.
 //
 // Revision 1.4  2009/05/17 20:54:38  Nathan

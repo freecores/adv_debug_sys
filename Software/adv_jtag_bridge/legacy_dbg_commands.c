@@ -1,7 +1,7 @@
 /* legacy_dbg_commands.c -- JTAG protocol bridge between GDB and OpenCores debug module.
    Copyright(C) 2001 Marko Mlinar, markom@opencores.org
    Code for TCP/IP copied from gdb, by Chris Ziomkowski
-   Adapted for the Advanced JTAG Bridge by Nathan Yawn, 2009
+   Adapted for the Advanced JTAG Bridge by Nathan Yawn, (C) 2009-2010
    
    This file was part of the OpenRISC 1000 Architectural Simulator.
    It is now also used to connect GDB to a running hardware OpenCores / OR1200

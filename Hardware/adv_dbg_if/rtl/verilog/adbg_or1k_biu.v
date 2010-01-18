@@ -12,7 +12,7 @@
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2008        Authors                            ////
+//// Copyright (C) 2008 - 2010       Authors                      ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adbg_or1k_biu.v,v $
+// Revision 1.3  2010-01-10 22:54:10  Nathan
+// Update copyright dates
+//
 // Revision 1.2  2009/05/17 20:54:56  Nathan
 // Changed email address to opencores.org
 //
