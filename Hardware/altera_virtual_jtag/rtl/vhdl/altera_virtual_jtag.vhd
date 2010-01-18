@@ -1,65 +1,48 @@
-//////////////////////////////////////////////////////////////////////
-////                                                              ////
-////  altera_virtual_jtag.vhd                                     ////
-////                                                              ////
-////                                                              ////
-////                                                              ////
-////  Author(s):                                                  ////
-////       Nathan Yawn (nathan.yawn@opencores.org)                ////
-////                                                              ////
-////                                                              ////
-////                                                              ////
-//////////////////////////////////////////////////////////////////////
-////                                                              ////
-//// Copyright (C) 2003-2008 Authors                              ////
-////                                                              ////
-//// This source file may be used and distributed without         ////
-//// restriction provided that this copyright statement is not    ////
-//// removed from the file and that any derivative work contains  ////
-//// the original copyright notice and the associated disclaimer. ////
-////                                                              ////
-//// This source file is free software; you can redistribute it   ////
-//// and/or modify it under the terms of the GNU Lesser General   ////
-//// Public License as published by the Free Software Foundation; ////
-//// either version 2.1 of the License, or (at your option) any   ////
-//// later version.                                               ////
-////                                                              ////
-//// This source is distributed in the hope that it will be       ////
-//// useful, but WITHOUT ANY WARRANTY; without even the implied   ////
-//// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR      ////
-//// PURPOSE.  See the GNU Lesser General Public License for more ////
-//// details.                                                     ////
-////                                                              ////
-//// You should have received a copy of the GNU Lesser General    ////
-//// Public License along with this source; if not, download it   ////
-//// from http://www.opencores.org/lgpl.shtml                     ////
-////                                                              ////
-//////////////////////////////////////////////////////////////////////
-//                                                                  //
-// This file is a wrapper for the Altera Virtual JTAG device.       //
-// It is designed to take the place of a separate TAP               //
-// controller in Altera systems, to allow a user to access a CPU    //
-// debug module (such as that of the OR1200) through the FPGA's     //
-// dedicated JTAG / configuration port.                             //
-//                                                                  //
-//////////////////////////////////////////////////////////////////////
-//
-// CVS Revision History
-//
-// $Log: altera_virtual_jtag.vhd,v $
-// Revision 1.3  2009-06-16 02:53:19  Nathan
-// Changed some signal names for better consistency between different hardware modules.
-//
-// Revision 1.2  2009/05/17 20:54:47  Nathan
-// Changed email address to opencores.org
-//
-// Revision 1.1  2008/07/18 20:09:31  Nathan
-// Changed directory structure to match existing projects.
-//
-// Revision 1.2  2008/05/22 19:55:20  Nathan
-// Added added copyright, CVS log, and brief description.
-//
-
+----------------------------------------------------------------------
+----                                                              ----
+----  altera_virtual_jtag.vhd                                     ----
+----                                                              ----
+----                                                              ----
+----                                                              ----
+----  Author(s):                                                  ----
+----       Nathan Yawn (nathan.yawn@opencores.org)                ----
+----                                                              ----
+----                                                              ----
+----                                                              ----
+---------------------------------------------------------------------
+----                                                              ----
+---- Copyright (C) 2008-2010 Authors                              ----
+----                                                              ----
+---- This source file may be used and distributed without         ----
+---- restriction provided that this copyright statement is not    ----
+---- removed from the file and that any derivative work contains  ----
+---- the original copyright notice and the associated disclaimer. ----
+----                                                              ----
+---- This source file is free software; you can redistribute it   ----
+---- and/or modify it under the terms of the GNU Lesser General   ----
+---- Public License as published by the Free Software Foundation; ----
+---- either version 2.1 of the License, or (at your option) any   ----
+---- later version.                                               ----
+----                                                              ----
+---- This source is distributed in the hope that it will be       ----
+---- useful, but WITHOUT ANY WARRANTY; without even the implied   ----
+---- warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR      ----
+---- PURPOSE.  See the GNU Lesser General Public License for more ----
+---- details.                                                     ----
+----                                                              ----
+---- You should have received a copy of the GNU Lesser General    ----
+---- Public License along with this source; if not, download it   ----
+---- from http://www.opencores.org/lgpl.shtml                     ----
+----                                                              ----
+----------------------------------------------------------------------
+--                                                                  --
+-- This file is a wrapper for the Altera Virtual JTAG device.       --
+-- It is designed to take the place of a separate TAP               --
+-- controller in Altera systems, to allow a user to access a CPU    --
+-- debug module (such as that of the OR1200) through the FPGA's     --
+-- dedicated JTAG / configuration port.                             --
+--                                                                  --
+----------------------------------------------------------------------
 
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
@@ -71,7 +54,7 @@ ENTITY altera_virtual_jtag IS
 	PORT
 	(
 		tck_o              : OUT STD_LOGIC;
-		debug_tdo_o        :  IN STD_LOGIC;
+		debug_tdo_i        :  IN STD_LOGIC;
 		tdi_o              : OUT STD_LOGIC;
 		test_logic_reset_o : OUT STD_LOGIC;
 		run_test_idle_o    : OUT STD_LOGIC;
@@ -154,7 +137,7 @@ BEGIN
 	)
 	PORT MAP (
 		ir_out => ir_value,
-		tdo => debug_tdo_o,
+		tdo => debug_tdo_i,
 		tdi => tdi_o,
 		jtag_state_rti => run_test_idle_o,
 		tck => tck_o,
