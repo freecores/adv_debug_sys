@@ -27,5 +27,6 @@ int dbg_cpu0_read_ctrl(unsigned long adr, unsigned char *data);
 //int dbg_cpu1_write(unsigned long adr, unsigned long data);
 //int dbg_cpu1_write_reg(unsigned long adr, unsigned char data);
 //int dbg_cpu1_read_ctrl(unsigned long adr, unsigned char *data);
+int dbg_serial_sndrcv(unsigned int *bytes_to_send, const char *data_to_send, unsigned int *bytes_received, char *data_received);
 
 #endif

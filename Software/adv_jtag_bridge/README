@@ -30,7 +30,9 @@ Some users have reported problems getting their USB-Blaster cables to
 work using the standard driver.  An alternate, libftdi-based driver
 has been added as a compile-time option.  Set
 USE_ALT_FTDI_USBBLASTER_DRIVER true to try the alternate driver; note
-the two different drivers are mutually exclusive.
+the two different drivers are mutually exclusive. Also note that the
+alternate libftdi-based driver is not a high-performance driver, and
+should not be used unless necessary.
 
 In release 2.0 and later, the adv_dbg_if core includes a "hi-speed"
 mode, which is used by default.  This requires a protocol change,
@@ -38,6 +40,43 @@ and so the adv_jtag_bridge must be built to match the build options
 used when synthesizing the adv_dbg_if. For hi-speed mode, set
 USE_HISPEED true (this is the default).  For the older mode, set
 USE_HISPEED to false. 
+
+Release 2.5 added the JTAG serial port (JSP).  There are three compile-
+time options related to this feature.  The first is
+INCLUDE_JSP_SERVER, set true by default.  If you synthesize the
+adv_dbg_if without JSP support, or you don't intend to use it,
+this may be set false.  This will prevent the JSP server thread
+from starting, and from polling constantly any time the target
+system is running, which can take significant system resources
+on the host system running adv_jtag_bridge.
+
+The second JSP-related option is JSP_MULTI_DEVICE_CHAIN, set true
+by default.  The adv_dbg_if core JSP hardware is synthesized with 
+support for multi-device JTAG chains by default, as this is safe
+to use on any system.  However, this can slow JSP performance 
+somewhat, particularly with USB-based cables.  The hardware core may
+therefore be synthesized with multi-device chain support disabled.
+If your adv_dbg_if core has been synthesized with this disabled,
+then you should set this option to false.  Note this causes a
+change in the JSP communication protocol used, so the options you
+compile adv_jtag_bridge with must match the options used to
+synthesize the adv_dbg_if core.  This option will be ignored if
+the INCLUDE_JSP_SERVER option is set false.
+
+The third JSP-related option is JSP_OPTIMIZE_FOR_USB, set true by
+default.  The JSP hardware will ignore extra bytes during read/
+write transactions.  This makes it safe to transfer the maximum of
+8 data bytes (plus the counts byte) on every transaction, regardless
+of the number of valid data bytes.  When this option is set true,
+all 9 bytes are sent as a single USB transaction each time a JSP
+transaction is performed, giving maximum performance using USB
+cables.  When this option is set false, then the counts word is
+transferred first, then used to determine the minimum number of
+bytes to transfer.  The minimum is then transferred, which gives
+better performance when using parallel JTAG cables (or bit-banging
+USB cables).  Note that this option does NOT change the communication
+protocol used.  Therefore, either setting is safe for any system -
+this option affects only performance.
 
 DEPENDENCIES
 

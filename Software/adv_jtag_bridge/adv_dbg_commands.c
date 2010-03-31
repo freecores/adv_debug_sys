@@ -26,12 +26,13 @@
 #include <stdio.h>
 #include <stdlib.h>  // for malloc()
 #include <unistd.h>  // for exit()
-#include <strings.h> // for bzero()
+#include <string.h>  // for memcpy()
 
 #include "chain_commands.h"
 #include "adv_dbg_commands.h"     // hardware-specific defines for the debug module
 #include "cable_common.h"         // low-level JTAG IO routines
 #include "errcodes.h"
+#include "utilities.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
 
@@ -42,6 +43,12 @@
 // Currently selected internal register in each module
 // - cuts down on unnecessary transfers
 int current_reg_idx[DBG_MAX_MODULES];
+
+// Scratchpad I/O buffers
+static char *input_scratchpad = NULL;
+static char *output_scratchpad = NULL;
+static int input_scratchpad_size = 0;
+static int output_scratchpad_size = 0;
 
 // Prototypes for local functions
 uint32_t adbg_compute_crc(uint32_t crc_in, uint32_t data_in, int length_bits);
@@ -344,8 +351,6 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
   uint32_t err_data[2];
   int bus_error_retries = 0;
   int err = APP_ERR_NONE;
-  static char *output_scratchpad = NULL;
-  static int output_scratchpad_size = 0;
 
     debug("Doing burst read, word size %d, word count %d, start address 0x%lX", word_size_bytes, word_count, start_address);
 
@@ -435,28 +440,22 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
        }
 
        // Check we have enough space for the (zero) output data
-       if(output_scratchpad_size < (word_count*word_size_bytes))
-	 {
-	   free(output_scratchpad);
-	   output_scratchpad = (char *) malloc(word_count*word_size_bytes);
-	   if(output_scratchpad != NULL) {
-	     output_scratchpad_size = (word_count*word_size_bytes);
-	     bzero(output_scratchpad, output_scratchpad_size);
-	   }
-	   else {
-	     output_scratchpad_size = 0;
-	     return APP_ERR_MALLOC;
-	   }
-	 }
-       //uint32_t outstream[64];
-       //bzero((char *)outstream, 64*4);
+       int total_size_bytes = (word_count*word_size_bytes)+4;
+       err |= check_buffer_size(&input_scratchpad, &input_scratchpad_size, total_size_bytes);
+       err |= check_buffer_size(&output_scratchpad, &output_scratchpad_size, total_size_bytes);
+       if(err != APP_ERR_NONE) return err;
+       memset(output_scratchpad, 0, total_size_bytes);
 
-       // Get the data in one shot
-       err |= jtag_read_write_stream((uint32_t *)output_scratchpad, (uint32_t *)data, word_size_bits*word_count, 0, 0);
+       // Get the data in one shot, including the CRC.  This requires two memcpy(), which take time,
+       // but it's still faster than an added USB transaction (assuming a USB cable).
+       err |= jtag_read_write_stream((uint32_t *)output_scratchpad, (uint32_t *)input_scratchpad, (total_size_bytes*8), 0, 1);
+       memcpy(data, input_scratchpad, (word_count*word_size_bytes));
+       memcpy(&crc_read, &input_scratchpad[(word_count*word_size_bytes)], 4);
        for(i = 0; i < (word_count*word_size_bytes); i++)
 	 {
 	   crc_calc = adbg_compute_crc(crc_calc, ((uint8_t *)data)[i], 8);
 	 } 
+
 #else
 
    // Repeat for each word: wait until ready = 1, then read word_size_bits bits.
@@ -506,10 +505,11 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
        else if(word_size_bytes == 2) ((unsigned short *)data)[i] = in_data & 0xFFFF;
        else ((unsigned long *)data)[i] = in_data;
      }
-#endif
     
    // All bus data was read.  Read the data CRC from the debug module.
    err |= jtag_read_write_stream(&out_data, &crc_read, 32, 0, 1);
+
+#endif
 
    err |= tap_exit_to_idle();  // Go from EXIT1 to IDLE
 
@@ -633,11 +633,26 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
 #ifdef ADBG_OPT_HISPEED
    // If compiled for "hi-speed" mode, we don't read a status bit after every
    // word written.  This saves a lot of complication!
-   // In this case, the loop below is used only for CRC calculation.
-   err |= jtag_write_stream((uint32_t *) data, (word_count*word_size_bits), 0);  // Write data
-#endif
+   // We send the CRC at the same time, so we have to compute it first.
+   for(loopct = 0; loopct < word_count; loopct++) {
+       if(word_size_bytes == 4)       datawords[0] = ((unsigned long *)data)[loopct];
+       else if(word_size_bytes == 2) datawords[0] = ((unsigned short *)data)[loopct];
+       else                          datawords[0] = ((unsigned char *)data)[loopct];
+       crc_calc = adbg_compute_crc(crc_calc, datawords[0], word_size_bits);
+   }
 
-   // Now, repeat...
+   int total_size_bytes = (word_count * word_size_bytes) + 4;
+   err |= check_buffer_size(&output_scratchpad, &output_scratchpad_size, total_size_bytes);
+   if(err != APP_ERR_NONE) return err;
+
+   memcpy(output_scratchpad, data, (word_count * word_size_bytes));
+   memcpy(&output_scratchpad[(word_count*word_size_bytes)], &crc_calc, 4);
+
+   err |= jtag_write_stream((uint32_t *) output_scratchpad, total_size_bytes*8, 0);  // Write data
+
+#else
+
+   // Or, repeat...
    for(loopct = 0; i < word_count; i++,loopct++)  // loopct only used to check status... 
      {
        // Write word_size_bytes*8 bits, then get 1 status bit
@@ -647,7 +662,6 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
       
        crc_calc = adbg_compute_crc(crc_calc, datawords[0], word_size_bits);
 
-#ifndef ADBG_OPT_HISPEED
        // This is an optimization
        if((global_DR_prefix_bits + global_DR_postfix_bits) == 0) {
 	 //#endif
@@ -678,7 +692,6 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
 	   }
 	 }
        }
-#endif
 
        if(err) {
 	 printf("Error %s during burst write, retrying.\n", get_err_string(err));  
@@ -702,6 +715,9 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
 
    // Done sending data, Send the CRC we computed
    err |= jtag_write_stream(&crc_calc, 32, 0);
+
+#endif
+
    for(i = 0; i < global_DR_prefix_bits; i++)  // Push the CRC data all the way to the debug unit
      err |= jtag_write_bit(0);                 // Can't do this with a stream command without setting TMS on the last bit
 
@@ -742,5 +758,147 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
      }
 
    retry_ok();
+   return err;
+}
+
+/*--------------------------------------------------------------------------------------------*/
+
+// This does a simultaneous read/write to the JTAG serial port.  It will send/receive at most 8 bytes,
+// so data_received must be at least 8 bytes long.  It is not guaranteed that all data (or any data)
+// will be sent.  On return, bytes_to_send will be set to the number of bytes actually senet.
+
+int adbg_jsp_transact(unsigned int *bytes_to_send, const char *data_to_send, unsigned int *bytes_received, char *data_received)
+{
+  int err = APP_ERR_NONE;
+  unsigned int xmitsize;
+  char outdata[10];  // These must 10 bytes: 1 for counts, 8 for data, and 1 (possible) start  and end bits
+  char indata[10];
+  unsigned char stopbit = 0, startbit = 0, wrapbit;
+  int bytes_free;
+  int i;
+
+  if(*bytes_to_send > 8)
+    xmitsize = 8;
+  else
+    xmitsize = *bytes_to_send;
+
+  if(err |= adbg_select_module(desired_chain))
+    return err;
+
+    // Put us in shift_dr mode
+    err |=  tap_set_shift_dr();
+
+    // There are two independant compile-time options here, making four different ways to do this transaction.
+    // If OPTIMIZE_FOR_USB is not defined, then one byte will be transacted to get the 'bytes available' and
+    // 'bytes free' counts, then the minimum number of bytes will be transacted to get all available bytes
+    // and put as many bytes as possible.  If OPTIMIZE_FOR_USB is defined, then 9 bytes will always be transacted,
+    // the JSP will ignore extras, and user code will have to check to see  how many bytes were written.
+    //
+    // if ENABLE_JSP_MULTI is enabled, then a '1' bit will be pre-pended to the data being sent (before the 'count'
+    // byte).  This is for compatibility with multi-device JTAG chains.
+
+#ifdef OPTIMIZE_JSP_FOR_USB
+
+    // Simplest case: do everything in 1 burst transaction
+    memset(outdata, 0, 10);  // Clear to act as 'stopbits'.  [8] may be overwritten in the following memcpy().
+
+ #ifdef ENABLE_JSP_MULTI
+
+    startbit = 1;
+    wrapbit = (xmitsize >> 3) & 0x1;
+    outdata[0] = (xmitsize << 5) | 0x1;  // set the start bit
+
+    for(i = 0; i < xmitsize; i++)  // don't copy off the end of the input array
+      {
+	outdata[i+1] = (data_to_send[i] << 1) | wrapbit;	
+	wrapbit = (data_to_send[i] >> 7) & 0x1;
+      }
+
+    if(i < 8)
+      outdata[i+1] = wrapbit;
+    else
+      outdata[9] = wrapbit;
+
+    // If the last data bit is a '1', then we need to append a '0' so the top-level module
+    // won't treat the burst as a 'module select' command.
+    if(outdata[9] & 0x01) stopbit = 1;
+    else                  stopbit = 0;
+
+ #else
+
+    startbit = 0;
+    outdata[0] = 0x0 | (xmitsize << 4);  // First byte out has write count in upper nibble
+    if (xmitsize > 0) memcpy(&outdata[1], data_to_send, xmitsize);
+
+    // If the last data bit is a '1', then we need to append a '0' so the top-level module
+    // won't treat the burst as a 'module select' command.
+    if(outdata[8] & 0x80) stopbit = 1;
+    else                  stopbit = 0;
+
+ #endif
+
+    debug("jsp doing 9 bytes, xmitsize %i\n", xmitsize);
+
+    // 72 bits: 9 bytes * 8 bits
+    err |= jtag_read_write_stream((uint32_t *) outdata, (uint32_t *) indata, 72+startbit+stopbit, 1, 1);
+
+    debug("jsp got remote sizes 0x%X\n", indata[0]);
+
+    *bytes_received = (indata[0] >> 4) & 0xF;  // bytes available is in the upper nibble
+    memcpy(data_received, &indata[1], *bytes_received);
+
+    bytes_free = indata[0] & 0x0F;
+    *bytes_to_send = (bytes_free < xmitsize) ? bytes_free : xmitsize; 
+
+#else  // !OPTIMIZE_JSP_FOR_USB
+
+ #ifdef ENABLE_JSP_MULTI
+    indata[0] = indata[1] = 0;
+    outdata[1] = (xmitsize >> 3) & 0x1;
+    outdata[0] = (xmitsize << 5) | 0x1;  // set the start bit
+    startbit = 1;
+
+ #else
+    outdata[0] = 0x0 | (xmitsize << 4);  // First byte out has write count in upper nibble
+    startbit = 0;
+ #endif
+
+    err |= jtag_read_write_stream((uint32_t *) outdata, (uint32_t *) indata, 8+startbit, 1, 0);
+
+    wrapbit = indata[1] & 0x1;  // only used if ENABLE_JSP_MULTI is defined
+    bytes_free = indata[0] & 0x0F;
+    *bytes_received = (indata[0] >> 4) & 0xF;  // bytes available is in the upper nibble
+
+    // Number of bytes to transact is max(bytes_available, min(bytes_to_send,bytes_free))
+    if(bytes_free < xmitsize) xmitsize = bytes_free;
+    if((*bytes_received) > xmitsize) xmitsize = *bytes_received;
+
+    memset(outdata, 0, 10);
+    memcpy(outdata, data_to_send, xmitsize);  // use larger array in case we need to send stopbit
+
+    // If the last data bit is a '1', then we need to append a '0' so the top-level module
+    // won't treat the burst as a 'module select' command.
+    if(xmitsize && (outdata[xmitsize - 1] & 0x80)) stopbit = 2;
+    else                             stopbit = 1;
+
+    err |= jtag_read_write_stream((uint32_t *) outdata, (uint32_t *) indata, (xmitsize*8)+stopbit, 0, 1);
+
+ #ifdef ENABLE_JSP_MULTI
+ 
+    for(i = 0; i < (*bytes_received); i++)
+      {
+	data_received[i] = (indata[i] << 1) | wrapbit;
+	wrapbit = (indata[i] >> 7) & 0x1;
+      }
+ #else
+    memcpy(data_received, indata, xmitsize);
+ #endif
+
+    if(bytes_free < *bytes_to_send) *bytes_to_send = bytes_free;
+
+#endif  // !OPTIMIZE_JSP_FOR_USB
+ 
+   err |= tap_exit_to_idle();  // Go from EXIT1 to IDLE
+
    return err;
 }

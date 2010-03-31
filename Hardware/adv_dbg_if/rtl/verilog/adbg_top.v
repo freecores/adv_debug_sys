@@ -36,32 +36,6 @@
 //// from http://www.opencores.org/lgpl.shtml                     ////
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
-//
-// CVS Revision History
-//
-// $Log: adbg_top.v,v $
-// Revision 1.3  2010-01-10 22:54:11  Nathan
-// Update copyright dates
-//
-// Revision 1.2  2009/05/17 20:54:56  Nathan
-// Changed email address to opencores.org
-//
-// Revision 1.1  2008/07/22 20:28:32  Nathan
-// Changed names of all files and modules (prefixed an a, for advanced).  Cleanup, indenting.  No functional changes.
-//
-// Revision 1.10  2008/07/11 08:13:29  Nathan
-// Latch opcode on posedge, like other signals.  This fixes a problem 
-// when the module is used with a Xilinx BSCAN TAP.  Added signals to 
-// allow modules to inhibit latching of a new active module by the top 
-// module.  This allows the sub-modules to force the top level module 
-// to ignore the command present in the input shift register after e.g. 
-// a burst read.
-//
-// Revision 1.7  2008/06/30 20:09:20  Nathan
-// Removed code to select top-level module as active (it served no 
-// purpose).  Re-numbered modules, requiring changes to testbench and 
-// software driver.
-//
 
 
 `include "adbg_defines.v"
@@ -90,7 +64,8 @@ module adbg_top(
                 // WISHBONE common signals
                 ,
                 wb_clk_i,
-
+                wb_rst_i,
+                
                 // WISHBONE master interface
                 wb_adr_o,
                 wb_dat_o,
@@ -135,7 +110,30 @@ module adbg_top(
                 cpu1_ack_i,
                 cpu1_rst_o
                 `endif
-
+		
+                `ifdef DBG_JSP_SUPPORTED
+                ,
+		`ifndef DBG_WISHBONE_SUPPORTED
+		wb_clk_i,
+		wb_rst_i,
+		`endif
+		
+                // WISHBONE target interface
+                wb_jsp_adr_i,
+                wb_jsp_dat_o,
+                wb_jsp_dat_i,
+                wb_jsp_cyc_i,
+                wb_jsp_stb_i,
+                wb_jsp_sel_i,
+                wb_jsp_we_i,
+                wb_jsp_ack_o,
+                wb_jsp_cab_i,
+                wb_jsp_err_o,
+                wb_jsp_cti_i,
+                wb_jsp_bte_i,
+		int_o
+                `endif
+		
 		);
 
 
@@ -154,8 +152,9 @@ module adbg_top(
    // Module select from TAP
    input   debug_select_i;
 
-		`ifdef DBG_WISHBONE_SUPPORTED
+`ifdef DBG_WISHBONE_SUPPORTED
    input   wb_clk_i;
+   input   wb_rst_i;
    output [31:0] wb_adr_o;
    output [31:0] wb_dat_o;
    input [31:0]  wb_dat_i;
@@ -168,9 +167,9 @@ module adbg_top(
    input         wb_err_i;
    output [2:0]  wb_cti_o;
    output [1:0]  wb_bte_o;
-		`endif
+`endif
 
-		`ifdef DBG_CPU0_SUPPORTED
+`ifdef DBG_CPU0_SUPPORTED
    // CPU signals
    input         cpu0_clk_i; 
    output [31:0] cpu0_addr_o; 
@@ -182,9 +181,9 @@ module adbg_top(
    output        cpu0_we_o;
    input         cpu0_ack_i;
    output        cpu0_rst_o;
-		`endif
+`endif
 
-		`ifdef DBG_CPU1_SUPPORTED
+`ifdef DBG_CPU1_SUPPORTED
    input         cpu1_clk_i; 
    output [31:0] cpu1_addr_o; 
    input [31:0]  cpu1_data_i; 
@@ -195,14 +194,33 @@ module adbg_top(
    output        cpu1_we_o;
    input         cpu1_ack_i;
    output        cpu1_rst_o;
-		`endif
+`endif
 
-
+`ifdef DBG_JSP_SUPPORTED
+   `ifndef DBG_WISHBONE_SUPPORTED
+   input   wb_clk_i;
+   input   wb_rst_i;
+   `endif
+   input [31:0]  wb_jsp_adr_i;
+   output [31:0] wb_jsp_dat_o;
+   input [31:0]  wb_jsp_dat_i;
+   input         wb_jsp_cyc_i;
+   input         wb_jsp_stb_i;
+   input [3:0]   wb_jsp_sel_i;
+   input         wb_jsp_we_i;
+   output        wb_jsp_ack_o;
+   input         wb_jsp_cab_i;
+   output        wb_jsp_err_o;
+   input [2:0]   wb_jsp_cti_i;
+   input [1:0]   wb_jsp_bte_i;
+   output 	 int_o;
+`endif
+   
    reg 		 tdo_o;
    wire 	 tdo_wb;
    wire 	 tdo_cpu0;
    wire 	 tdo_cpu1;
-
+   wire          tdo_jsp;
 
    // Registers
    reg [`DBG_TOP_MODULE_DATA_LEN-1:0] input_shift_reg;  // 1 bit sel/cmd, 4 bit opcode, 32 bit address, 16 bit length = 53 bits
@@ -215,7 +233,7 @@ module adbg_top(
    wire [(`DBG_TOP_MODULE_ID_LENGTH - 1) : 0] module_id_in;    // The part of the input_shift_register to be used as the module select data
    reg [(`DBG_TOP_MAX_MODULES - 1) : 0]       module_selects;  // Select signals for the individual modules
    wire 				      select_inhibit;  // OR of inhibit signals from sub-modules, prevents latching of a new module ID
-   wire [2:0] 				      module_inhibit;  // signals to allow submodules to prevent top level from latching new module ID
+   wire [3:0] 				      module_inhibit;  // signals to allow submodules to prevent top level from latching new module ID
 
    ///////////////////////////////////////
    // Combinatorial assignments
@@ -336,7 +354,7 @@ assign module_inhibit[`DBG_TOP_CPU0_DEBUG_MODULE] = 1'b0;
 
 `ifdef DBG_CPU1_SUPPORTED
 // Connecting cpu module
-adbg_or1k_module i_dbg_cpu_8051 (
+adbg_or1k_module i_dbg_cpu_2 (
                   // JTAG signals
                   .tck_i            (tck_i),
                   .module_tdo_o     (tdo_cpu1),
@@ -369,20 +387,62 @@ assign tdo_cpu1 = 1'b0;
 assign module_inhibit[`DBG_TOP_CPU1_DEBUG_MODULE] = 1'b0;
 `endif
 
+`ifdef DBG_JSP_SUPPORTED
+adbg_jsp_module i_dbg_jsp (
+                  // JTAG signals
+                  .tck_i            (tck_i),
+                  .module_tdo_o     (tdo_jsp),
+                  .tdi_i            (tdi_i),
+
+                  // TAP states
+                  .capture_dr_i     (capture_dr_i),
+                  .shift_dr_i       (shift_dr_i),
+                  .update_dr_i      (update_dr_i),
+
+                  .data_register_i  (input_shift_reg),
+                  .module_select_i  (module_selects[`DBG_TOP_JSP_DEBUG_MODULE]),
+                  .top_inhibit_o     (module_inhibit[`DBG_TOP_JSP_DEBUG_MODULE]),
+                  .rst_i            (rst_i),
+
+                  // WISHBONE common signals
+                  .wb_clk_i         (wb_clk_i),
+                  .wb_rst_i         (wb_rst_i),
+                  
+                  // WISHBONE master interface
+                  .wb_adr_i         (wb_jsp_adr_i), 
+                  .wb_dat_o         (wb_jsp_dat_o),
+                  .wb_dat_i         (wb_jsp_dat_i),
+                  .wb_cyc_i         (wb_jsp_cyc_i),
+                  .wb_stb_i         (wb_jsp_stb_i),
+                  .wb_sel_i         (wb_jsp_sel_i),
+                  .wb_we_i          (wb_jsp_we_i),
+                  .wb_ack_o         (wb_jsp_ack_o),
+                  .wb_cab_i         (wb_jsp_cab_i),
+                  .wb_err_o         (wb_jsp_err_o),
+                  .wb_cti_i         (wb_jsp_cti_i),
+                  .wb_bte_i         (wb_jsp_bte_i),
+		  .int_o            (int_o)
+            );
+   
+`else
+   assign tdo_jsp = 1'b0;
+   assign module_inhibit[`DBG_TOP_JSP_DEBUG_MODULE] = 1'b0;
+`endif   
+   
 assign select_inhibit = |module_inhibit;
 
 /////////////////////////////////////////////////
 // TDO output MUX
 
-always @ (module_id_reg or tdo_wb or tdo_cpu0 or tdo_cpu1)
+always @ (module_id_reg or tdo_wb or tdo_cpu0 or tdo_cpu1 or tdo_jsp)
 begin
-	case (module_id_reg)
-		`DBG_TOP_WISHBONE_DEBUG_MODULE: tdo_o <= tdo_wb;
-		`DBG_TOP_CPU0_DEBUG_MODULE:     tdo_o <= tdo_cpu0;
-		`DBG_TOP_CPU1_DEBUG_MODULE:     tdo_o <= tdo_cpu1;
-		default:                        tdo_o <= 1'b0;
-	endcase
-
+   case (module_id_reg)
+     `DBG_TOP_WISHBONE_DEBUG_MODULE: tdo_o <= tdo_wb;
+     `DBG_TOP_CPU0_DEBUG_MODULE:     tdo_o <= tdo_cpu0;
+     `DBG_TOP_CPU1_DEBUG_MODULE:     tdo_o <= tdo_cpu1;
+     `DBG_TOP_JSP_DEBUG_MODULE:      tdo_o <= tdo_jsp;
+       default:                        tdo_o <= 1'b0;
+   endcase
 end
 
 

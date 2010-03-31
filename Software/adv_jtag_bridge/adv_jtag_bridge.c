@@ -39,6 +39,8 @@
 #include "or32_selftest.h"
 #include "bsdl.h"
 #include "errcodes.h"
+#include "hardware_monitor.h"
+#include "jsp_server.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
 
@@ -74,8 +76,13 @@ irset * cmd_line_ir_sizes = NULL;
 int cmd_line_cmd_debug = -1;  // 0 is a valid debug command, so use -1
 
 // TCP port to set up the server for GDB on
-char *port;
+char *port = NULL;
 char default_port[] = "9999";
+
+#ifdef ENABLE_JSP
+char *jspport = NULL;
+char default_jspport[] = "9944";
+#endif
 
 // Force altera virtual jtag mode on(1) or off(-1)
 int force_alt_vjtag = 0;
@@ -265,10 +272,18 @@ void print_usage(char *func)
 #else
   printf("Compiled with support for the Advanced Debug Interface (adv_dbg_if).\n");
 #endif
-  printf("Copyright (C) 2008 Nathan Yawn, nathan.yawn@opencores.org\n\n");
+#ifdef ENABLE_JSP
+  printf("Compiled with support for the JTAG Serial Port (JSP).\n");
+#else
+  printf("Support for the JTAG serial port is NOT compiled in.\n");
+#endif
+  printf("Copyright (C) 2010 Nathan Yawn, nathan.yawn@opencores.org\n\n");
   printf("Usage: %s (options) [cable] (cable options)\n", func);
   printf("Options:\n");
-  printf("\t-g [port]     : port number for GDB (default: 9999)\n");
+  printf("\t-g [port]     : port number for GDB (default: %s)\n", default_port);
+#ifdef ENABLE_JSP
+  printf("\t-j [port]     : port number for JSP Server (default: %s)\n", default_jspport);
+#endif
   printf("\t-x [index]    : Position of the target device in the scan chain\n");
   printf("\t-a [0 / 1]    : force Altera virtual JTAG mode off (0) or on (1)\n");
   printf("\t-l [<index>:<bits>]     : Specify length of IR register for device\n");
@@ -293,11 +308,14 @@ void parse_args(int argc, char **argv)
   int idx, val;
   const char *valid_cable_args = NULL;
   port = NULL;
+#ifdef ENABLE_JSP
+  jspport = NULL;
+#endif
   force_alt_vjtag = 0;
   cmd_line_cmd_debug = -1;
 
   /* Parse the global arguments (if-any) */
-  while((c = getopt(argc, argv, "+g:x:a:l:c:v:r:b:th")) != -1) {
+  while((c = getopt(argc, argv, "+g:j:x:a:l:c:v:r:b:th")) != -1) {
     switch(c) {
     case 'h':
       print_usage(argv[0]);
@@ -306,6 +324,11 @@ void parse_args(int argc, char **argv)
     case 'g':
       port = optarg;
       break;
+#ifdef ENABLE_JSP
+    case 'j':
+      jspport = optarg;
+      break;
+#endif
     case 'x':
       target_dev_pos = atoi(optarg);
       break;
@@ -352,6 +375,11 @@ void parse_args(int argc, char **argv)
   if(port == NULL)
     port = default_port;
   
+#ifdef ENABLE_JSP
+  if(jspport == NULL)
+    jspport = default_jspport;
+#endif
+
   int found_cable = 0;
   char* start_str = argv[optind];
   int start_idx = optind;
@@ -432,9 +460,35 @@ int main(int argc,  char *argv[]) {
     
   /* We have a connection.  Establish server.  */
   serverPort = strtol(port,&s,10);
-  if(*s) return -1;
+  if(*s) {
+    printf("Failed to get RSP server port \'%s\', using default \'%s\'.\n", port, default_port);
+    serverPort = strtol(default_port,&s,10);
+    if(*s) {
+      printf("Failed to get RSP default port, exiting.\n");
+      return -1;
+    }
+  }
+
+  // Start the thread which handle CPU stall/unstall
+  start_monitor_thread();
 
   rsp_init(serverPort);
+
+#ifdef ENABLE_JSP
+  long int jspserverport;
+  jspserverport = strtol(jspport,&s,10);
+  if(*s) {
+    printf("Failed to get JSP server port \'%s\', using default \'%s\'.\n", jspport, default_jspport);
+    serverPort = strtol(default_jspport,&s,10);
+    if(*s) {
+      printf("Failed to get default JSP port, exiting.\n");
+      return -1;
+    }
+  }
+
+  jsp_init(jspserverport);
+  jsp_server_start();
+#endif
 
   printf("JTAG bridge ready!\n");
 

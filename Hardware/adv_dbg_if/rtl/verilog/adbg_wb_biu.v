@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adbg_wb_biu.v,v $
+// Revision 1.5  2010-03-21 01:05:10  Nathan
+// Use all 32 address bits - WishBone slaves may use the 2 least-significant address bits instead of the four wb_sel lines, or in addition to them.
+//
 // Revision 1.4  2010-01-10 22:54:11  Nathan
 // Update copyright dates
 //
@@ -135,7 +138,7 @@ module adbg_wb_biu
 
    // Registers
    reg [3:0] 	 sel_reg;
-   reg [29:0] 	 addr_reg;  // Don't need the two LSB, this info is in the SEL bits
+   reg [31:0] 	 addr_reg;  // Don't really need the two LSB, this info is in the SEL bits
    reg [31:0] 	 data_in_reg;  // dbg->WB
    reg [31:0] 	 data_out_reg;  // WB->dbg
    reg 		 wr_reg;
@@ -239,14 +242,14 @@ module adbg_wb_biu
      begin
 	if(rst_i) begin
 	   sel_reg <= 4'h0;
-	   addr_reg <= 30'h0;
+	   addr_reg <= 32'h0;
 	   data_in_reg <= 32'h0;
 	   wr_reg <= 1'b0;
 	end
 	else
 	  if(strobe_i && rdy_o) begin
 	     sel_reg <= be_dec;
-	     addr_reg <= addr_i[31:2];
+	     addr_reg <= addr_i;
 	     if(!rd_wrn_i) data_in_reg <= swapped_data_i;
 	     wr_reg <= ~rd_wrn_i;
 	  end 
@@ -285,7 +288,7 @@ module adbg_wb_biu
 
    assign wb_dat_o = data_in_reg;
    assign wb_we_o = wr_reg;
-   assign wb_adr_o = {addr_reg, 2'h0};
+   assign wb_adr_o = addr_reg;
    assign wb_sel_o = sel_reg;
 
    assign data_o = data_out_reg;

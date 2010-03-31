@@ -666,5 +666,24 @@ int dbg_cpu1_read_ctrl(unsigned long adr, unsigned char *data) {
   return err;
 }
 
+int dbg_serial_sndrcv(unsigned int *bytes_to_send, const char *data_to_send, unsigned int *bytes_received, char *data_received) {
+  int err; 
+
+  pthread_mutex_lock(&dbg_access_mutex);
+
+  if ((err = adbg_select_module(DC_JSP))) {
+    printf("Failed to set chain to 0x%X\n", DC_JSP);
+    cable_flush();
+    pthread_mutex_unlock(&dbg_access_mutex);
+    return err;
+  }
+ 
+  err = adbg_jsp_transact(bytes_to_send, data_to_send, bytes_received, data_received);
+ 
+  cable_flush();
+  pthread_mutex_unlock(&dbg_access_mutex);
+  
+  return err;
+}
 
 

@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adbg_or1k_module.v,v $
+// Revision 1.6  2010-03-08 21:04:18  Nathan
+// Changes for the JTAG serial port module.  Uncompiled, untestede.  Removed CVS logs, minor fixes in comments.
+//
 // Revision 1.5  2010-01-13 00:55:45  Nathan
 // Created hi-speed mode for burst reads.  This will probably be most beneficial to the OR1K module, as GDB does a burst read of all the GPRs each time a microinstruction is single-stepped.
 //
@@ -107,7 +110,7 @@ module adbg_or1k_module (
    output        top_inhibit_o;
    input         rst_i;
 
-   // WISHBONE master interface
+   // Interface to OR1200 debug unit
    input 	 cpu_clk_i;    // 'bus' style interface to SPRs
    output [31:0] cpu_addr_o;
    input [31:0]  cpu_data_i;

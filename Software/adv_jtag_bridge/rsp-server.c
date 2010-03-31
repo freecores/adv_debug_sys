@@ -38,13 +38,13 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <poll.h>
 #include <netinet/tcp.h>
 #include <string.h>
-#include <pthread.h>
 
 /* Package includes */
 #include "except.h"
 #include "spr-defs.h"
 #include "dbg_api.h"
 #include "errcodes.h"
+#include "hardware_monitor.h"
 
 /* Define to log each packet */
 #define RSP_TRACE  0
@@ -79,14 +79,13 @@ enum target_signal {
   TARGET_SIGNAL_PWR  = 32
 };
 
-/*! The maximum number of characters in inbound/outbound buffers.  The largest
-    packets are the 'G' packet, which must hold the 'G' and all the registers
-    with two hex digits per byte and the 'g' reply, which must hold all the
-    registers, and (in our implementation) an end-of-string (0)
-    character. Adding the EOS allows us to print out the packet as a
-    string. So at least NUMREGBYTES*2 + 1 (for the 'G' or the EOS) are needed
-    for register packets */
-#define GDB_BUF_MAX  ((NUM_REGS) * 8 + 1)
+/*! The maximum number of characters in inbound/outbound buffers.  
+ * The max is 16kB, and larger buffers make for faster
+ * transfer times, so use the max.  If your setup is prone
+ * to JTAG communication errors, you may want to use a smaller
+ * size. 
+ */
+#define GDB_BUF_MAX  (16*1024) // ((NUM_REGS) * 8 + 1)
 
 /*! Size of the matchpoint hash table. Largest prime < 2^10 */
 #define MP_HASH_SIZE  1021
@@ -122,14 +121,6 @@ struct mp_entry
 };
 
 /* Data to interface the GDB handler thread with the target handler thread */
-pthread_mutex_t rsp_mutex = PTHREAD_MUTEX_INITIALIZER;  /*!< Mutex to protect the "target_running" member of the rsp struct */
-pthread_mutex_t target_handler_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t target_handler_cond = PTHREAD_COND_INITIALIZER;
-
-int target_handler_state = 0;
-pthread_t target_handler_thread;
-void *target_handler(void *arg);
-
 int pipe_fds[2];  // Descriptors for the pipe from the poller thread to the GDB interface thread
 
 // Work-around for the current OR1200 implementation; After setting the NPC,
@@ -230,7 +221,6 @@ rsp_init (int portNum)
   int                 optval;		/* Socket options */
   int                 flags;		/* Socket flags */
   char                name[256];	/* Our name */
-  unsigned long       tmp;
 
 
   /* Clear out the central data structure */
@@ -357,34 +347,6 @@ rsp_init (int portNum)
       return;
     }
 
-  // Stall the CPU...it starts off running.
-  set_stall_state(1);
-  rsp.target_running = 0;
-  target_handler_state = 0;  // Don't start the polling thread until we have a client
-  rsp.single_step_mode = 0;
-
-  // Set up the CPU to break to the debug unit on exceptions.
-  dbg_cpu0_read(SPR_DSR, &tmp);
-  dbg_cpu0_write(SPR_DSR, tmp|SPR_DSR_TE|SPR_DSR_FPE|SPR_DSR_RE|SPR_DSR_IIE|SPR_DSR_AE|SPR_DSR_BUSEE);
-
-  // Enable TRAP exception, but don't otherwise change the SR
-  dbg_cpu0_read(SPR_SR, &tmp);
-  dbg_cpu0_write(SPR_SR, tmp|SPR_SR_SM);  // We set 'supervisor mode', which also enables TRAP exceptions
-
-  if(0 > pipe(pipe_fds)) {  // pipe_fds[0] is for reading, [1] is for writing
-    perror("Error creating sockets: ");
-    rsp_server_close();
-    return;
-  }
-
-  // Create the harware target polling thread
-  if(pthread_create(&target_handler_thread, NULL, target_handler, NULL))
-    {
-      fprintf(stderr, "Failed to create target handler thread!\n");
-      rsp_server_close();
-      return;
-    }
-
 }	/* rsp_init () */
 
 
@@ -415,7 +377,8 @@ rsp_init (int portNum)
 int handle_rsp (void)
 {
   struct pollfd  fds[2];	/* The FD to poll for */
-  char bitbucket;
+  char monitor_status;
+  unsigned long drrval;
 
   /* Give up if no RSP server port (this should not occur) */
   if (-1 == rsp.server_fd)
@@ -481,7 +444,7 @@ int handle_rsp (void)
   fds[0].fd     = rsp.client_fd;	/* FD for the client socket */
   fds[0].events = POLLIN;		/* Poll for input activity */
 
-  fds[1].fd = pipe_fds[0];
+  fds[1].fd = pipe_fds[1];
   fds[1].events = POLLIN;
 
   /* Poll is always blocking. We can't do anything more until something
@@ -516,24 +479,45 @@ int handle_rsp (void)
       else if(POLLIN == (fds[1].revents & POLLIN))
 	{
 	  //fprintf(stderr, "Got pipe event from monitor thread\n");
-	  bitbucket = read(pipe_fds[0], &bitbucket, 1);  // Clear the byte out and discard
-	  /* If we have an unacknowledged exception and a client is available, tell
-	     GDB. If this exception was a trap due to a memory breakpoint, then
-	     adjust the NPC. */
-	  if (rsp.client_waiting)
-	    { 
-	      // Read the PPC
-	      unsigned long ppcval;
-	      dbg_cpu0_read(SPR_PPC, &ppcval);
-	      
-	      if ((TARGET_SIGNAL_TRAP == rsp.sigval) &&
-		  (NULL != mp_hash_lookup (BP_MEMORY, ppcval)))  // We also get TRAP from a single-step, don't change npc unless it's really a BP
+	  read(pipe_fds[1], &monitor_status, 1);  // Read the monitor status
+	  // *** TODO: Check return value of read()
+	  if(monitor_status == 'H')
+	    {
+	      if(rsp.target_running)  // ignore if a duplicate event
 		{
-		  set_npc (ppcval);
+		  rsp.target_running = 0;
+		  // Log the exception so it can be sent back to GDB
+		  dbg_cpu0_read(SPR_DRR, &drrval);  // Read the DRR, find out why we stopped
+		  rsp_exception(drrval);  // Send it to be translated and stored
+		  
+		  /* If we have an unacknowledged exception and a client is available, tell
+		     GDB. If this exception was a trap due to a memory breakpoint, then
+		     adjust the NPC. */
+		  if (rsp.client_waiting)
+		    { 
+		      // Read the PPC
+		      unsigned long ppcval;
+		      dbg_cpu0_read(SPR_PPC, &ppcval);
+		      
+		      if ((TARGET_SIGNAL_TRAP == rsp.sigval) &&
+			  (NULL != mp_hash_lookup (BP_MEMORY, ppcval)))  // We also get TRAP from a single-step, don't change npc unless it's really a BP
+			{
+			  set_npc (ppcval);
+			}
+		      
+		      rsp_report_exception();
+		      rsp.client_waiting = 0;		/* No longer waiting */
+		    }
 		}
-	      
-	      rsp_report_exception();
-	      rsp.client_waiting = 0;		/* No longer waiting */
+	    }
+	  else if(monitor_status == 'R')
+	    {
+	      rsp.target_running = 1;
+	      // If things are added here, be sure to ignore if this event is a duplicate
+	    }
+	  else
+	    {
+	      fprintf(stderr, "RSP server got unknown status \'%c\' (0x%X) from target monitor!\n", monitor_status, monitor_status);
 	    }
 	}
       else
@@ -618,6 +602,7 @@ rsp_server_request ()
   int                 fd;		/* The client FD */
   int                 flags;		/* fcntl () flags */
   int                 optval;		/* Option value for setsockopt () */
+  unsigned long       tmp;
 
   /* Get the client FD */
   len = sizeof (sock_addr);
@@ -682,14 +667,31 @@ rsp_server_request ()
       return;
     }
 
+  /* Register for stall/unstall events from the target monitor thread. Also creates pipe
+   * for sending stall/unstall command to the target monitor. */
+  if(0 > register_with_monitor_thread(pipe_fds)) {  // pipe_fds[0] is for writing to monitor, [1] is to read from it
+    fprintf(stderr, "RSP server failed to register with monitor thread, exiting");
+    rsp_server_close();
+    close (fd);
+    return;
+  }
+
   /* We have a new client socket */
   rsp.client_fd = fd;
 
-  // Set the hardware polling thread to run
-  // This will cause the poll() to be interrupted next time
-  pthread_mutex_lock(&target_handler_mutex);
-  target_handler_state = 1; 
-  pthread_mutex_unlock(&target_handler_mutex);
+  /* Now that we have a valid client connection, set up the CPU for GDB
+   * Stall the CPU...it starts off running. */
+  set_stall_state(1);
+  rsp.target_running = 0;  // This prevents an initial exception report to GDB (which it's not expecting)
+  rsp.single_step_mode = 0;
+
+  /* Set up the CPU to break to the debug unit on exceptions. */
+  dbg_cpu0_read(SPR_DSR, &tmp);
+  dbg_cpu0_write(SPR_DSR, tmp|SPR_DSR_TE|SPR_DSR_FPE|SPR_DSR_RE|SPR_DSR_IIE|SPR_DSR_AE|SPR_DSR_BUSEE);
+
+  /* Enable TRAP exception, but don't otherwise change the SR */
+  dbg_cpu0_read(SPR_SR, &tmp);
+  dbg_cpu0_write(SPR_SR, tmp|SPR_SR_SM);  // We set 'supervisor mode', which also enables TRAP exceptions
 
 }	/* rsp_server_request () */
 
@@ -719,13 +721,8 @@ rsp_client_request ()
 #endif
 
   // Check if target is running.
-  int running = 0;
-  pthread_mutex_lock(&rsp_mutex);
-  running = rsp.target_running;
-  pthread_mutex_unlock(&rsp_mutex);
-
   // If running, only process async BREAK command
-  if(running)
+  if(rsp.target_running)
     {
       if(buf->data[0] == 0x03)  // 0x03 is the ctrl-C "break" command from GDB
 	{
@@ -934,11 +931,6 @@ rsp_client_request ()
 static void
 rsp_server_close ()
 {
-  // Stop the target handler thread
-  pthread_mutex_lock(&target_handler_mutex);
-  target_handler_state = 2; 
-  pthread_mutex_unlock(&target_handler_mutex);
-
   if (-1 != rsp.server_fd)
     {
       close (rsp.server_fd);
@@ -952,14 +944,9 @@ rsp_server_close ()
 /*---------------------------------------------------------------------------*/
 static void
 rsp_client_close ()
-{
-  unsigned char was_running = 0;
-  
+{  
   // If target is running, stop it so we can modify SPRs
-  pthread_mutex_lock(&rsp_mutex);
-  was_running = rsp.target_running;
-  pthread_mutex_unlock(&rsp_mutex);
-  if(was_running) {
+  if(rsp.target_running) {
     set_stall_state(1);
   }
 
@@ -967,14 +954,13 @@ rsp_client_close ()
   dbg_cpu0_write(SPR_DSR, 0);
 
   // If target was running, restart it.
-  if(was_running) {
+  // rsp.target_running is changed in this thread, so it won't have changed due to the above stall command.
+  if(rsp.target_running) {
     set_stall_state(0);
   }
 
-  // Stop the target handler thread.  MUST BE DONE AFTER THE LAST set_stall_state()!
-  pthread_mutex_lock(&target_handler_mutex);
-  target_handler_state = 0; 
-  pthread_mutex_unlock(&target_handler_mutex);
+  // Unregister with the target handler thread.  MUST BE DONE AFTER THE LAST set_stall_state()!
+  unregister_with_monitor_thread(pipe_fds);
 
   if (-1 != rsp.client_fd)
     {
@@ -2821,149 +2807,28 @@ rsp_insert_matchpoint (struct rsp_buf *buf)
 
 // Additions from this point on were added solely to handle hardware,
 // and did not come from simulator interface code.
-///////////////////////////////////////////////////////////////////////////
-//
-//  Thread to poll for break on remote processor.
-///////////////////////////////////////////////////////////////////////////
-
-void *target_handler(void *arg)
-{
-  unsigned char target_status = 0;
-  int retval = APP_ERR_NONE;
-  char string[] = "a";  // We send this through the pipe.  Content is unimportant.
-  unsigned int local_state = 0;
-
-  while(1)
-    {
-      // Block on condition for GO or DETACH signal
-      pthread_mutex_lock(&target_handler_mutex);
-      if(target_handler_state == 0)
-	{
-	  pthread_cond_wait(&target_handler_cond, &target_handler_mutex);
-	}
-
-      // if detach, exit thread
-      if(target_handler_state == 2)  // 2 = DETACH
-	{
-	  target_handler_state = 0;
-	  pthread_mutex_unlock(&target_handler_mutex);
-	  return arg;
-	}
-
-      local_state = target_handler_state;
-      pthread_mutex_unlock(&target_handler_mutex);
-
-
-
-      if(local_state == 1)  // Then start target polling loop, but keep checking for DETACH.  State 1 == GO
-	{
-	  while(1)
-	    {
-	      // non-blocking check for DETACH signal
-	      pthread_mutex_lock(&target_handler_mutex);
-	      if(target_handler_state == 2)  // state 2 == DETACH
-		{
-		  pthread_mutex_unlock(&target_handler_mutex);
-		  return arg;
-		}
-	      pthread_mutex_unlock(&target_handler_mutex);
-
-	      // Poll target hardware
-	      retval = dbg_cpu0_read_ctrl(0, &target_status);
-	      if(retval != APP_ERR_NONE)
-		fprintf(stderr, "ERROR 0x%X while polling target CPU status\n", retval);
-	      else {
-		if(target_status & 0x01)  // Did we get the stall bit?  Bit 0 is STALL bit.
-		  {
-		    // clear the RUNNING flag
-		    pthread_mutex_lock(&rsp_mutex);
-		    rsp.target_running = 0;
-		    pthread_mutex_unlock(&rsp_mutex);
-
-		    // Log the exception so it can be sent back to GDB
-		    unsigned long drrval;
-		    dbg_cpu0_read(SPR_DRR, &drrval);  // Read the DRR, find out why we stopped
-		    rsp_exception(drrval);  // Send it to be translated and stored
-
-		    // Send message to GDB handler thread via socket (so it can break out of its poll())
-		    int ret = write(pipe_fds[1], string, 1);
-		    if(!ret) {
-		      fprintf(stderr, "Warning: target monitor write() to pipe returned 0\n");
-		    }
-		    else if(ret < 0) {
-		      perror("Error in target monitor write to pipe: ");
-		    }
-
-		    // Set our own state back to STOP
-		    pthread_mutex_lock(&target_handler_mutex);
-		    target_handler_state = 0;
-		    pthread_mutex_unlock(&target_handler_mutex);
-
-		    break;  // Stop polling, block on the next GO/DETACH
-		  }
-	      }
-
-	      usleep(250000);  // wait 1/4 second before polling again.
-	    }
-	}
-
-      else
-	{
-	  fprintf(stderr, "Unknown command 0x%X received by target handler thread\n", local_state);
-	  pthread_mutex_lock(&target_handler_mutex);  // Set our own state back to STOP
-	  target_handler_state = 0;
-	  pthread_mutex_unlock(&target_handler_mutex);
-	}
-    }
-
-  return arg;
-}
-
-
-
 
 void set_stall_state(int stall)
 {
-  int retval = 0;
-  unsigned char data = (stall>0)? 1:0;
-  unsigned char stalled = 0;
+  int ret;
 
-  // Set the 'running' variable, if necessary.  Do this before actually starting the CPU.
-  // The 'running' variable prevents us from responding to most GDB requests while the
-  // CPU is running.
-  // We don't ever set the 'running' bit to 0 here.  Instead, we stall the CPU hardware, and let
-  // the target handler thread detect the stall, then signal us to send a message up to
-  // GDB and clear the 'running' bit.
   if(stall == 0)
     {
       use_cached_npc = 0;
-      pthread_mutex_lock(&rsp_mutex);
-      rsp.target_running = 1;
-      pthread_mutex_unlock(&rsp_mutex);
     }
+
+  //fprintf(stderr, "RSP server sending stall command 0x%X\n", stall);
 
   // Actually start or stop the CPU hardware
-  retval = dbg_cpu0_write_ctrl(0, data);  // 0x01 is the STALL command bit
-  if(retval != APP_ERR_NONE)
-    fprintf(stderr, "ERROR 0x%X sending async STALL to target.\n", retval);
-
-  dbg_cpu0_read_ctrl(0, &stalled);
-  /*
-    if (!(stalled & 0x1)) {
-    printf("or1k is not stalled!\n");
-    }
-
-    fprintf(stderr, "Set STALL to %i\n", data);
-  */
-
-  // Wake up the target handler thread to poll for a new STALL
-  if(stall == 0)
-    {
-      pthread_mutex_lock(&target_handler_mutex);
-      target_handler_state = 1;
-      pthread_cond_signal(&target_handler_cond);
-      pthread_mutex_unlock(&target_handler_mutex);
-    }
+  if(stall) ret = write(pipe_fds[0], "S", 1); 
+  else      ret = write(pipe_fds[0], "U", 1); 
+ 
+  if(!ret) {
+    fprintf(stderr, "Warning: target monitor write() to pipe returned 0\n");
+  }
+  else if(ret < 0) {
+    perror("Error in target monitor write to pipe");
+  }
 
   return;
 }

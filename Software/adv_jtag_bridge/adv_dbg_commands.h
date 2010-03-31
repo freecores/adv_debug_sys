@@ -11,6 +11,7 @@
 #define DC_WISHBONE 0
 #define DC_CPU0     1
 #define DC_CPU1     2
+#define DC_JSP      3
 
 // Polynomial for the CRC calculation
 // Yes, it's backwards.  Yes, this is on purpose.
@@ -69,5 +70,6 @@ int adbg_ctrl_read(unsigned long regidx, uint32_t *data, int databits);
 int adbg_burst_command(unsigned int opcode, unsigned long address, int length_words);
 int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_address, void *data);
 int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigned long start_address);
+int adbg_jsp_transact(unsigned int *bytes_to_send, const char *data_to_send, unsigned int *bytes_received, char *data_received);
 
 #endif
