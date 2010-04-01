@@ -229,7 +229,7 @@ void *jsp_server(void *arg)
 {
   struct sockaddr_storage their_addr;
   struct timeval tv, *tvp;
-  struct fd_set  readset;
+  fd_set  readset;
   int addr_size;
   int nfds, flags;
   int ret;

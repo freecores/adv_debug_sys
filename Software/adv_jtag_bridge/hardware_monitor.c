@@ -172,7 +172,7 @@ void unregister_with_monitor_thread(int pipe_fds[2])
 void *target_handler(void *arg)
 {
   struct timeval tv;
-  struct fd_set  readset;
+  fd_set  readset;
   int i, fd, ret, nfds;
   char cmd;
   unsigned char target_status;
