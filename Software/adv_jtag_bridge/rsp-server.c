@@ -378,7 +378,8 @@ int handle_rsp (void)
 {
   struct pollfd  fds[2];	/* The FD to poll for */
   char monitor_status;
-  unsigned long drrval;
+  uint32_t drrval;
+  uint32_t ppcval;
 
   /* Give up if no RSP server port (this should not occur) */
   if (-1 == rsp.server_fd)
@@ -496,7 +497,6 @@ int handle_rsp (void)
 		  if (rsp.client_waiting)
 		    { 
 		      // Read the PPC
-		      unsigned long ppcval;
 		      dbg_cpu0_read(SPR_PPC, &ppcval);
 		      
 		      if ((TARGET_SIGNAL_TRAP == rsp.sigval) &&
@@ -602,7 +602,7 @@ rsp_server_request ()
   int                 fd;		/* The client FD */
   int                 flags;		/* fcntl () flags */
   int                 optval;		/* Option value for setsockopt () */
-  unsigned long       tmp;
+  uint32_t            tmp;
 
   /* Get the client FD */
   len = sizeof (sock_addr);
@@ -1730,7 +1730,7 @@ rsp_continue_with_signal (struct rsp_buf *buf)
 static void
 rsp_continue_generic (unsigned long int  except)
 {
-  unsigned long tmp;
+  uint32_t tmp;
 
   /* Clear Debug Reason Register and watchpoint break generation in Debug Mode
      Register 2 */
@@ -1771,8 +1771,8 @@ rsp_read_all_regs ()
 {
   struct rsp_buf  buf;			/* Buffer for the reply */
   int             r;			/* Register index */
-  unsigned long regbuf[MAX_GPRS];
-  unsigned int errcode = APP_ERR_NONE;
+  uint32_t        regbuf[MAX_GPRS];
+  unsigned int    errcode = APP_ERR_NONE;
 
   // Read all the GPRs in a single burst, for efficiency
   errcode = dbg_cpu0_read_block(SPR_GPR_BASE, regbuf, MAX_GPRS);
@@ -1800,22 +1800,6 @@ rsp_read_all_regs ()
   reg2hex(regbuf[1], &(buf.data[SR_REGNUM  * 8]));
 
   //fprintf(stderr, "Read SPRs:  0x%08X, 0x%08X, 0x%08X\n", regbuf[0], regbuf[1], regbuf[2]);
-
-  /*
-  dbg_cpu0_read(SPR_PPC, &tmp);
-  reg2hex(tmp, &(buf.data[PPC_REGNUM * 8]));
-
-  if(use_cached_npc == 1) {  // Hackery to work around CPU hardware quirk 
-    tmp = cached_npc;
-  }
-  else {
-    dbg_cpu0_read(SPR_NPC, &tmp);
-  }
-  reg2hex(tmp, &(buf.data[NPC_REGNUM * 8]));
-
-  dbg_cpu0_read(SPR_SR, &tmp);
-  reg2hex(tmp, &(buf.data[SR_REGNUM  * 8]));
-  */
 
   if(errcode == APP_ERR_NONE) {
     /* Finalize the packet and send it */
@@ -1850,8 +1834,8 @@ static void
 rsp_write_all_regs (struct rsp_buf *buf)
 {
   int             r;			/* Register index */
-  unsigned long regbuf[MAX_GPRS];
-  unsigned int errcode;
+  uint32_t        regbuf[MAX_GPRS];
+  unsigned int    errcode;
 
   /* The GPRs */
   for (r = 0; r < MAX_GPRS; r++)
@@ -2051,7 +2035,7 @@ static void
 rsp_read_reg (struct rsp_buf *buf)
 {
   unsigned int  regnum;
-  unsigned long tmp;
+  uint32_t tmp;
   unsigned int errcode = APP_ERR_NONE;
 
   /* Break out the fields from the data */
@@ -2283,8 +2267,8 @@ rsp_query (struct rsp_buf *buf)
 static void
 rsp_command (struct rsp_buf *buf)
 {
-  char  cmd[GDB_BUF_MAX];
-  unsigned long tmp;
+  char cmd[GDB_BUF_MAX];
+  uint32_t tmp;
 
   hex2ascii (cmd, &(buf->data[strlen ("qRcmd,")]));
 
@@ -2313,7 +2297,7 @@ rsp_command (struct rsp_buf *buf)
 
       /* Construct the reply */
       dbg_cpu0_read(regno, &tmp);  // TODO Check return value of all hardware accesses
-      sprintf (cmd, "%8lx", tmp);
+      sprintf (cmd, "%8x", tmp);
       ascii2hex (buf->data, cmd);
       buf->len = strlen (buf->data);
       put_packet (buf);
@@ -2461,7 +2445,7 @@ rsp_step_with_signal (struct rsp_buf *buf)
 static void
 rsp_step_generic (unsigned long int  except)
 {
-  unsigned long tmp;
+  uint32_t tmp;
 
   /* Clear Debug Reason Register and watchpoint break generation in Debug Mode
      Register 2 */
@@ -2661,13 +2645,13 @@ static void
 rsp_remove_matchpoint (struct rsp_buf *buf)
 {
   enum mp_type       type;		/* What sort of matchpoint */
-  unsigned long int  addr;		/* Address specified */
+  uint32_t           addr;		/* Address specified */
   int                len;		/* Matchpoint length (not used) */
   struct mp_entry   *mpe;		/* Info about the replaced instr */
-  unsigned long instbuf[1];
+  uint32_t           instbuf[1];
 
   /* Break out the instruction */
-  if (3 != sscanf (buf->data, "z%1d,%lx,%1d", (int *)&type, &addr, &len))
+  if (3 != sscanf (buf->data, "z%1d,%x,%1d", (int *)&type, &addr, &len))
     {
       fprintf (stderr, "Warning: RSP matchpoint deletion request not "
 	       "recognized: ignored\n");
@@ -2744,12 +2728,12 @@ static void
 rsp_insert_matchpoint (struct rsp_buf *buf)
 {
   enum mp_type       type;		/* What sort of matchpoint */
-  unsigned long int  addr;		/* Address specified */
+  uint32_t           addr;		/* Address specified */
   int                len;		/* Matchpoint length (not used) */
-  unsigned long instbuf[1];
+  uint32_t           instbuf[1];
 
   /* Break out the instruction */
-  if (3 != sscanf (buf->data, "Z%1d,%lx,%1d", (int *)&type, &addr, &len))
+  if (3 != sscanf (buf->data, "Z%1d,%x,%1d", (int *)&type, &addr, &len))
     {
       fprintf (stderr, "Warning: RSP matchpoint insertion request not "
 	       "recognized: ignored\n");

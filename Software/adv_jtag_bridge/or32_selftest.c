@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>  // for exit()
+#include <stdint.h>
 
 #include "or32_selftest.h"
 #include "dbg_api.h"
@@ -145,7 +146,7 @@ int stall_cpus(void)
 
 void init_mc(void)
 {
-  unsigned long insn;
+  uint32_t insn;
 
   printf("Initialize Memory Controller (SDRAM)\n");
   CHECK(dbg_wb_write32(MC_BASE_ADDR + MC_BAR_0, FLASH_BAR_VAL & 0xffff0000));
@@ -179,7 +180,7 @@ void init_mc(void)
   CHECK(dbg_wb_write32(MC_BASE_ADDR + MC_CCR_4, 0xc0bf0005));
   
   CHECK(dbg_wb_read32(MC_BASE_ADDR+MC_CCR_4, &insn));
-  printf("expected %x, read %lx\n", 0xc0bf0005, insn);
+  printf("expected %x, read %x\n", 0xc0bf0005, insn);
 }
 
 
@@ -196,14 +197,14 @@ void init_sram(void)
 
 int test_sdram(void) 
 {
-  unsigned long insn;
+  uint32_t insn;
   unsigned long i;
-  unsigned long data4_out[0x08];
-  unsigned long data4_in[0x08];
-  unsigned short data2_out[0x10];
-  unsigned short data2_in[0x10];
-  unsigned char data1_out[0x20];
-  unsigned char data1_in[0x20];
+  uint32_t data4_out[0x08];
+  uint32_t data4_in[0x08];
+  uint16_t data2_out[0x10];
+  uint16_t data2_in[0x10];
+  uint8_t data1_out[0x20];
+  uint8_t data1_in[0x20];
           
   printf("Start SDRAM WR\n");
   for (i=0x10; i<(SDRAM_SIZE+SDRAM_BASE); i=i<<1) {
@@ -236,7 +237,7 @@ int test_sdram(void)
   for (i=0; i<(0x20/4); i++) {
     //printf("0x%x: 0x%x\n", SDRAM_BASE+(i*4), data_out[i]);
     if (data4_in[i] != data4_out[i]) {
-      printf("SDRAM data differs. Expected: 0x%0lx, read: 0x%0lx\n", data4_in[i], data4_out[i]);
+      printf("SDRAM data differs. Expected: 0x%0x, read: 0x%0x\n", data4_in[i], data4_out[i]);
       return APP_ERR_TEST_FAIL;
     }
   }
@@ -285,17 +286,17 @@ int test_sdram(void)
 
 int test_sdram_2(void)
 {
-  unsigned long insn;
+  uint32_t insn;
 
   printf("SDRAM test 2: \n");
   CHECK(dbg_wb_write32(SDRAM_BASE+0x00, 0x12345678));
   CHECK(dbg_wb_read32(SDRAM_BASE+0x00, &insn));
-  printf("expected %x, read %lx\n", 0x12345678, insn);
+  printf("expected %x, read %x\n", 0x12345678, insn);
   if (insn != 0x12345678) return APP_ERR_TEST_FAIL;
   
   CHECK(dbg_wb_write32(SDRAM_BASE+0x0000, 0x11112222));
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0000, &insn));
-  printf("expected %x, read %lx\n", 0x11112222, insn);
+  printf("expected %x, read %x\n", 0x11112222, insn);
   if (insn != 0x11112222) return APP_ERR_TEST_FAIL;
 
   CHECK(dbg_wb_write32(SDRAM_BASE+0x0004, 0x33334444));
@@ -308,23 +309,23 @@ int test_sdram_2(void)
   CHECK(dbg_wb_write32(SDRAM_BASE+0x0020, 0xdeadbeef));
   
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0000, &insn));
-  printf("expected %x, read %lx\n", 0x11112222, insn);
+  printf("expected %x, read %x\n", 0x11112222, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0004, &insn));
-  printf("expected %x, read %lx\n", 0x33334444, insn);
+  printf("expected %x, read %x\n", 0x33334444, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0008, &insn));
-  printf("expected %x, read %lx\n", 0x55556666, insn);
+  printf("expected %x, read %x\n", 0x55556666, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x000c, &insn));
-  printf("expected %x, read %lx\n", 0x77778888, insn);
+  printf("expected %x, read %x\n", 0x77778888, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0010, &insn));
-  printf("expected %x, read %lx\n", 0x9999aaaa, insn);
+  printf("expected %x, read %x\n", 0x9999aaaa, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0014, &insn));
-  printf("expected %x, read %lx\n", 0xbbbbcccc, insn);
+  printf("expected %x, read %x\n", 0xbbbbcccc, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0018, &insn));
-  printf("expected %x, read %lx\n", 0xddddeeee, insn);
+  printf("expected %x, read %x\n", 0xddddeeee, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x001c, &insn));
-  printf("expected %x, read %lx\n", 0xffff0000, insn);
+  printf("expected %x, read %x\n", 0xffff0000, insn);
   CHECK(dbg_wb_read32(SDRAM_BASE+0x0020, &insn));
-  printf("expected %x, read %lx\n", 0xdeadbeef, insn);
+  printf("expected %x, read %x\n", 0xdeadbeef, insn);
     
   if (insn != 0xdeadbeef) {
     printf("SDRAM test 2 FAILED\n");
@@ -340,8 +341,8 @@ int test_sdram_2(void)
 int test_sram(void)
 {
   //unsigned long insn;
-  unsigned long ins;
-  unsigned long insn[9];
+  uint32_t ins;
+  uint32_t insn[9];
   insn[0] = 0x11112222;
   insn[1] = 0x33334444;
   insn[2] = 0x55556666;
@@ -367,23 +368,23 @@ int test_sram(void)
   
 
   CHECK(dbg_wb_read32(SRAM_BASE+0x0000, &ins));
-  printf("expected %x, read %lx\n", 0x11112222, ins);
+  printf("expected %x, read %x\n", 0x11112222, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0004, &ins));
-  printf("expected %x, read %lx\n", 0x33334444, ins);
+  printf("expected %x, read %x\n", 0x33334444, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0008, &ins));
-  printf("expected %x, read %lx\n", 0x55556666, ins);
+  printf("expected %x, read %x\n", 0x55556666, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x000c, &ins));
-  printf("expected %x, read %lx\n", 0x77778888, ins);
+  printf("expected %x, read %x\n", 0x77778888, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0010, &ins));
-  printf("expected %x, read %lx\n", 0x9999aaaa, ins);
+  printf("expected %x, read %x\n", 0x9999aaaa, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0014, &ins));
-  printf("expected %x, read %lx\n", 0xbbbbcccc, ins);
+  printf("expected %x, read %x\n", 0xbbbbcccc, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0018, &ins));
-  printf("expected %x, read %lx\n", 0xddddeeee, ins);
+  printf("expected %x, read %x\n", 0xddddeeee, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x001c, &ins));
-  printf("expected %x, read %lx\n", 0xffff0000, ins);
+  printf("expected %x, read %x\n", 0xffff0000, ins);
   CHECK(dbg_wb_read32(SRAM_BASE+0x0020, &ins));
-  printf("expected %x, read %lx\n", 0xdedababa, ins);
+  printf("expected %x, read %x\n", 0xdedababa, ins);
  
   if (ins != 0xdedababa) {
     printf("SRAM test failed!!!\n");
@@ -399,9 +400,9 @@ int test_sram(void)
 
 int test_or1k_cpu0(void)
 {
-  unsigned long npc, ppc, r1, insn;
-  unsigned char stalled;
-  unsigned long result;
+  uint32_t npc, ppc, r1, insn;
+  uint8_t stalled;
+  uint32_t result;
   int i;
 
   printf("Testing CPU0 (or1k) - writing instructions\n");
@@ -433,7 +434,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 16, &npc));  /* Read NPC */
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000010, 0x00000028, 5);
   result = npc + ppc + r1;
   
@@ -446,7 +447,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  // Read PPC 
   CHECK(dbg_cpu0_read(0x401, &r1));  // Read R1 
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x28, insn));  // Set back original insn 
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000010, 0x00000028, 8);
   result = npc + ppc + r1 + result;
 
@@ -459,7 +460,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  // Read PPC 
   CHECK(dbg_cpu0_read(0x401, &r1));  // Read R1 
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x24, insn));  // Set back original insn 
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000028, 0x00000024, 11);
   result = npc + ppc + r1 + result;
   
@@ -472,7 +473,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x20, insn));  /* Set back original insn */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000024, 0x00000020, 24);
   result = npc + ppc + r1 + result;
 
@@ -485,7 +486,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x1c, insn));  /* Set back original insn */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000020, 0x0000001c, 49);
   result = npc + ppc + r1 + result;
 
@@ -498,7 +499,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x20, insn));  /* Set back original insn */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000024, 0x00000020, 50);
   result = npc + ppc + r1 + result;
 
@@ -511,7 +512,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
   CHECK(dbg_wb_write32(SDRAM_BASE + 0x10, insn));  /* Set back original insn */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000014, 0x00000010, 99);
   result = npc + ppc + r1 + result;
 
@@ -525,7 +526,7 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 16, &npc));  /* Read NPC */
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000028, 0x00000024, 101);
   result = npc + ppc + r1 + result;
 
@@ -539,10 +540,10 @@ int test_or1k_cpu0(void)
   CHECK(dbg_cpu0_read((0 << 11) + 16, &npc));  /* Read NPC */
   CHECK(dbg_cpu0_read((0 << 11) + 18, &ppc));  /* Read PPC */
   CHECK(dbg_cpu0_read(0x401, &r1));  /* Read R1 */
-  printf("Read      npc = %.8lx ppc = %.8lx r1 = %.8lx\n", npc, ppc, r1);
+  printf("Read      npc = %.8x ppc = %.8x r1 = %.8x\n", npc, ppc, r1);
   printf("Expected  npc = %.8x ppc = %.8x r1 = %.8x\n", 0x00000010, 0x00000028, 201);
   result = npc + ppc + r1 + result;
-  printf("result = %.8lx\n", result ^ 0xdeaddae1);
+  printf("result = %.8x\n", result ^ 0xdeaddae1);
 
   if((result ^ 0xdeaddae1) != 0xdeaddead)
     return APP_ERR_TEST_FAIL;
