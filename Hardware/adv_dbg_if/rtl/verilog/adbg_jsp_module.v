@@ -354,7 +354,7 @@ module adbg_jsp_module (
    // Outputs of state machine, pure combinatorial
    always @ (wr_module_state or wr_module_next_state or module_select_i or update_dr_i or capture_dr_i or shift_dr_i
 	     or in_word_count_zero or out_word_count_zero or wr_bit_count_max or decremented_in_word_count
-	     or decremented_out_word_count)
+	     or decremented_out_word_count or user_word_count_zero)
      begin
 	// Default everything to 0, keeps the case statement simple
 	wr_bit_ct_en <= 1'b0;         // enable bit counter

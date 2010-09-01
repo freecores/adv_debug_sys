@@ -346,11 +346,15 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
   uint32_t crc_read;
   unsigned char word_size_bits;
   uint32_t out_data = 0;
-  uint32_t in_data;
+  uint32_t in_data = 0;
   unsigned long addr;
   uint32_t err_data[2];
   int bus_error_retries = 0;
   int err = APP_ERR_NONE;
+
+  // Silence GCC
+  (void)in_data;
+  (void)out_data;
 
     debug("Doing burst read, word size %d, word count %d, start address 0x%lX", word_size_bytes, word_count, start_address);
 

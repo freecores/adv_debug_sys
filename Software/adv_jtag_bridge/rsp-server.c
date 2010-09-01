@@ -38,6 +38,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <poll.h>
 #include <netinet/tcp.h>
 #include <string.h>
+#include <netinet/in.h>
 
 /* Package includes */
 #include "except.h"
@@ -498,11 +499,25 @@ int handle_rsp (void)
 		    { 
 		      // Read the PPC
 		      dbg_cpu0_read(SPR_PPC, &ppcval);
-		      
-		      if ((TARGET_SIGNAL_TRAP == rsp.sigval) &&
-			  (NULL != mp_hash_lookup (BP_MEMORY, ppcval)))  // We also get TRAP from a single-step, don't change npc unless it's really a BP
+		    
+		      // This is structured the way it is to avoid the read of DMR2 unless it's necessary.
+		      if (TARGET_SIGNAL_TRAP == rsp.sigval)
 			{
-			  set_npc (ppcval);
+			  if(NULL != mp_hash_lookup (BP_MEMORY, ppcval))  // Is this a breakpoint we set? (we also get a TRAP on single-step)
+			    {	  
+			      //fprintf(stderr, "Resetting NPC to PPC\n");
+			      set_npc(ppcval);
+			    }
+			  else 
+			    {
+			      uint32_t dmr2val;
+			      dbg_cpu0_read(SPR_DMR2, &dmr2val);  // We need this to check for a hardware breakpoint
+			      if((dmr2val & SPR_DMR2_WBS) != 0)  // Is this a hardware breakpoint?
+				{	  
+				  //fprintf(stderr, "Resetting NPC to PPC\n");
+				  set_npc(ppcval);
+				}
+			    }
 			}
 		      
 		      rsp_report_exception();
@@ -1732,12 +1747,14 @@ rsp_continue_generic (unsigned long int  except)
 {
   uint32_t tmp;
 
-  /* Clear Debug Reason Register and watchpoint break generation in Debug Mode
-     Register 2 */
+  /* Clear Debug Reason Register */
   dbg_cpu0_write(SPR_DRR, 0);
+  
+  /* Clear any watchpoints indicated in DMR2.  Any write to DMR2 will clear this (undocumented feature). */
   dbg_cpu0_read(SPR_DMR2, &tmp);
-  tmp &= ~SPR_DMR2_WGB;
-  dbg_cpu0_write(SPR_DMR2, tmp);
+  if(tmp & SPR_DMR2_WBS) {  // don't waste the time writing if no hw breakpoints set
+    dbg_cpu0_write(SPR_DMR2, tmp);
+  }
 
   /* Clear the single step trigger in Debug Mode Register 1 and set traps to be
      handled by the debug unit in the Debug Stop Register */
@@ -2447,13 +2464,13 @@ rsp_step_generic (unsigned long int  except)
 {
   uint32_t tmp;
 
-  /* Clear Debug Reason Register and watchpoint break generation in Debug Mode
-     Register 2 */
+  /* Clear Debug Reason Register */
   tmp = 0;
   dbg_cpu0_write(SPR_DRR, tmp);  // *** TODO Check return value of all hardware accesses
+  
+  /* Clear any watchpoint indicators in DMR2.  Any write to DMR2 will do this (undocumented feature) */
   dbg_cpu0_read(SPR_DMR2, &tmp);
-  if(tmp & SPR_DMR2_WGB) {
-    tmp &= ~SPR_DMR2_WGB;
+  if(tmp & SPR_DMR2_WBS) {  // If no HW breakpoints, don't waste time writing
     dbg_cpu0_write(SPR_DMR2, tmp);
   }
 

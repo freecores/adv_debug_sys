@@ -103,7 +103,9 @@ GDB 6.8 has a bug which prevents it from working when no stack frame is
 present (such as at start-up on a bare-metal debugger, such as this one).  
 A simple patch applied to GDB 6.8 will work around the problem (a general 
 solution is not yet available).  This patch can be found in the source
-directory of adv_jtag_bridge as "gdb-6.8-bz436037-reg-no-longer-active.patch".
+directory of adv_jtag_bridge as "gdb-6.8-bz436037-reg-no-longer-active.patch",
+and also in Patches/ directory at the top level of the Advanced Debug
+System.
 
 LICENSE
 

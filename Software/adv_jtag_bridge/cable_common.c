@@ -74,6 +74,7 @@ static struct jtag_cable {
     NULL,
     "s:p:",
     "-p [port] Port number that the VPI module is listening on\n\t-s [server] Server that the VPI module is running on\n" },
+#ifdef __SUPPORT_PARALLEL_CABLES__
   { "xpc3", 
     cable_xpc3_inout, 
     cable_xpc3_out, 
@@ -100,6 +101,7 @@ static struct jtag_cable {
     NULL,
     "p:",
     "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n" },
+#endif
 #ifdef __SUPPORT_USB_CABLES__
   { "usbblaster", 
     cable_usbblaster_inout, 

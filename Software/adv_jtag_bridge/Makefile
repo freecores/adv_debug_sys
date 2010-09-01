@@ -1,12 +1,15 @@
 prefix = /usr/local
 
 # Your build environment. selects libs, lib dirs, and include dirs
-# Supported: linux, cygwin
+# Supported: linux, cygwin, freebsd
 BUILD_ENVIRONMENT=cygwin
 
 # Set this to 'true' if you want to build for the legacy debug unit ('debug_if' core),
 # leave 'false' if you are building for the Advanced Debug Unit.
 SUPPORT_LEGACY=false
+
+# Set this to 'true' to include support for parallel cables
+SUPPORT_PARALLEL_CABLES=true
 
 # Set this to 'true' to include support for cables which require libusb
 # currently includes Altera USB-Blaster and Xilinx XPC DLC8
@@ -57,8 +60,7 @@ CFLAGS = -g -O2 -Wall
 CC = gcc
 LIBS = -lpthread
 INCLUDEDIRS = -I/usr/local/include/libusb-1.0/ -I/usr/local/include/
-
-else
+endif
 
 ifeq ($(BUILD_ENVIRONMENT),cygwin)
 # These are for cygwin.  It assumes libusb.a is in the current directory.
@@ -68,6 +70,15 @@ LIBS = -L. -lioperm -lpthread
 INCLUDEDIRS = -I/usr/local/include/
 endif
 
+ifeq ($(BUILD_ENVIRONMENT),freebsd)
+# These are for FreeBSD. Only FreeBSD >= 8 is supported (assumes, that
+# libusb(8) is present in the base system (/usr/lib/libusb* exists).
+CFLAGS = -g -O2 -Wall
+CC = gcc
+LIBS = -L. -L/usr/local/lib -lpthread
+INCLUDEDIRS = -I/usr/local/include/
+# We don't have a support for parallel cables on FreeBSD yet.
+SUPPORT_PARALLEL_CABLE=false
 endif
 
 ifeq ($(SUPPORT_LEGACY),true)
@@ -91,20 +102,27 @@ PROGRAMS = adv_jtag_bridge
 
 HEADERS = adv_jtag_bridge.h chain_commands.h opencores_tap.h \
 	altera_virtual_jtag.h rsp-server.h bsdl.h or32_selftest.c cable_common.h \
-	cable_parallel.h cable_sim.h \
+	cable_sim.h \
 	bsdl_parse.h errcodes.h spr-defs.h except.h adv_dbg_commands.h dbg_api.h \
-	legacy_dbg_commands.h utilities.h hardware_monitor.h
+	legacy_dbg_commands.h utilities.h hardware_monitor.h hwp_server.h
 
 SOURCES = adv_jtag_bridge.c rsp-server.c chain_commands.c cable_common.c bsdl.c \
-	or32_selftest.c cable_parallel.c cable_sim.c utilities.c \
+	or32_selftest.c cable_sim.c utilities.c \
 	bsdl_parse.c errcodes.c adv_dbg_commands.c dbg_api.c legacy_dbg_commands.c \
-	hardware_monitor.c
+	hardware_monitor.c hwp_server.c
 
 OBJECTS = adv_jtag_bridge.o rsp-server.o chain_commands.o cable_common.o bsdl.o \
-	or32_selftest.o cable_parallel.o cable_sim.o utilities.o \
+	or32_selftest.o cable_sim.o utilities.o \
 	bsdl_parse.o errcodes.o adv_dbg_commands.o dbg_api.o legacy_dbg_commands.o \
-	hardware_monitor.o
+	hardware_monitor.o hwp_server.o
 
+
+ifeq ($(SUPPORT_PARALLEL_CABLES),true)
+CFLAGS += -D__SUPPORT_PARALLEL_CABLES__
+HEADERS += cable_parallel.h
+SOURCES += cable_parallel.c
+OBJECTS += cable_parallel.o
+endif
 
 ifeq ($(SUPPORT_USB_CABLES),true)
 CFLAGS += -D__SUPPORT_USB_CABLES__
@@ -154,7 +172,7 @@ default: $(PROGRAMS)
 
 adv_jtag_bridge: Makefile $(OBJECTS) $(HEADERS)
 	rm -f $@
-	$(CC) -o $@ $(CFLAGS) $(OBJECTS) $(LIBS) $(INCLUDEDIRS)
+	$(CC) -o $@ $(CFLAGS) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 
 
 install: all

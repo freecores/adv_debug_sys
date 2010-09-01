@@ -21,6 +21,7 @@
 /* This plugs into an rtl simulator via vpi */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <errno.h>
@@ -117,8 +118,6 @@ int vpi_jp_in(char *xx)
   vpiHandle sys = vpi_handle(vpiSysTfCall, 0);
   vpiHandle argv;
   vpiHandle dat_to;
-
-  vpiHandle dat_to_index;
 
   if(!jp_got_con) {
     if(!jp_check_con())

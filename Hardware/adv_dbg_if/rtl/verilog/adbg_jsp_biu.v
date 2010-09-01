@@ -512,7 +512,7 @@ module adbg_jsp_biu
 	else iir_gen <= 3'b001;
      end 
    
-   assign reg_iir = {5'b00000, iir_gen};
+   assign reg_iir = iir_gen;
    
    // Create the data lines out to the WB.
    // Always put all 4 bytes on the WB data lines, let the master pick out what it

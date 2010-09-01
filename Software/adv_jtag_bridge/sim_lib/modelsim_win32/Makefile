@@ -3,7 +3,7 @@ SRCDIR=../src/
 
 # The location of the ModelSim installation, used
 # to build the C lib for VPI.  Used by MinGW, so use windows dir name, not /cygdrive/...
-MODEL=c:/altera/70/modelsim_ae
+MODEL=c:/altera/90/modelsim_ase
 
 # Different installs of Modelsim keep their libraries in different
 # directories (e.g. the version that comes with the Altera web version).

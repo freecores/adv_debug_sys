@@ -41,6 +41,7 @@
 #include "errcodes.h"
 #include "hardware_monitor.h"
 #include "jsp_server.h"
+#include "hwp_server.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
 
@@ -83,6 +84,9 @@ char default_port[] = "9999";
 char *jspport = NULL;
 char default_jspport[] = "9944";
 #endif
+
+char *hwpport = NULL;
+char default_hwpport[] = "9928";
 
 // Force altera virtual jtag mode on(1) or off(-1)
 int force_alt_vjtag = 0;
@@ -284,6 +288,7 @@ void print_usage(char *func)
 #ifdef ENABLE_JSP
   printf("\t-j [port]     : port number for JSP Server (default: %s)\n", default_jspport);
 #endif
+  printf("\t-w [port]     : port number for HWP server (default: %s)\n", default_hwpport);
   printf("\t-x [index]    : Position of the target device in the scan chain\n");
   printf("\t-a [0 / 1]    : force Altera virtual JTAG mode off (0) or on (1)\n");
   printf("\t-l [<index>:<bits>]     : Specify length of IR register for device\n");
@@ -315,7 +320,7 @@ void parse_args(int argc, char **argv)
   cmd_line_cmd_debug = -1;
 
   /* Parse the global arguments (if-any) */
-  while((c = getopt(argc, argv, "+g:j:x:a:l:c:v:r:b:th")) != -1) {
+  while((c = getopt(argc, argv, "+g:j:w:x:a:l:c:v:r:b:th")) != -1) {
     switch(c) {
     case 'h':
       print_usage(argv[0]);
@@ -329,6 +334,9 @@ void parse_args(int argc, char **argv)
       jspport = optarg;
       break;
 #endif
+    case 'w':
+      hwpport = optarg;
+      break;
     case 'x':
       target_dev_pos = atoi(optarg);
       break;
@@ -380,6 +388,9 @@ void parse_args(int argc, char **argv)
     jspport = default_jspport;
 #endif
 
+  if(hwpport == NULL)
+    hwpport = default_hwpport;
+
   int found_cable = 0;
   char* start_str = argv[optind];
   int start_idx = optind;
@@ -395,7 +406,8 @@ void parse_args(int argc, char **argv)
   
 
   if(!found_cable) {
-    fprintf(stderr, "No valid cable specified.\n");
+    fprintf(stderr, "Error: No valid cable specified.\n");
+    print_usage(argv[0]);
     exit(1);
   }
   
@@ -489,6 +501,20 @@ int main(int argc,  char *argv[]) {
   jsp_init(jspserverport);
   jsp_server_start();
 #endif
+
+  long int hwpserverport;
+  hwpserverport = strtol(hwpport,&s,10);
+  if(*s) {
+    printf("Failed to get HWP server port \'%s\', using default \'%s\'.\n", jspport, default_jspport);
+    serverPort = strtol(default_hwpport,&s,10);
+    if(*s) {
+      printf("Failed to get default HWP port, exiting.\n");
+      return -1;
+    }
+  }
+
+  hwp_init(hwpserverport);
+  hwp_server_start();
 
   printf("JTAG bridge ready!\n");
 

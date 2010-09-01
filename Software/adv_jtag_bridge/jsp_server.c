@@ -30,6 +30,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 #include "dbg_api.h"
 #include "hardware_monitor.h"
@@ -230,7 +232,7 @@ void *jsp_server(void *arg)
   struct sockaddr_storage their_addr;
   struct timeval tv, *tvp;
   fd_set  readset;
-  int addr_size;
+  socklen_t addr_size;
   int nfds, flags;
   int ret;
   char cmd;
@@ -501,10 +503,10 @@ void jsp_send_data_to_client(int fd)
 
 void jsp_hardware_transact(void)
 {
-  int bytes_to_send;
-  int bytes_received = 8;  // can receive up to 8 bytes
-  char sendbuf[8];
-  char rcvbuf[8];
+  unsigned int bytes_to_send;
+  unsigned int bytes_received = 8;  // can receive up to 8 bytes
+  unsigned char sendbuf[8];
+  unsigned char rcvbuf[8];
   int i,j;
   int ret;
 
