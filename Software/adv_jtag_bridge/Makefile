@@ -78,7 +78,7 @@ CC = gcc
 LIBS = -L. -L/usr/local/lib -lpthread
 INCLUDEDIRS = -I/usr/local/include/
 # We don't have a support for parallel cables on FreeBSD yet.
-SUPPORT_PARALLEL_CABLE=false
+SUPPORT_PARALLEL_CABLES=false
 endif
 
 ifeq ($(SUPPORT_LEGACY),true)
