@@ -59,7 +59,7 @@ ifeq ($(BUILD_ENVIRONMENT),linux)
 CFLAGS = -g -O2 -Wall
 CC = gcc
 LIBS = -lpthread
-INCLUDEDIRS = -I/usr/local/include/libusb-1.0/ -I/usr/local/include/
+INCLUDEDIRS = -I/usr/local/include/libusb-1.0/ -I/usr/include/ -I/usr/local/include/
 endif
 
 ifeq ($(BUILD_ENVIRONMENT),cygwin)

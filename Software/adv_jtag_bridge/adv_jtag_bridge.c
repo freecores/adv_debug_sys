@@ -505,7 +505,7 @@ int main(int argc,  char *argv[]) {
   long int hwpserverport;
   hwpserverport = strtol(hwpport,&s,10);
   if(*s) {
-    printf("Failed to get HWP server port \'%s\', using default \'%s\'.\n", jspport, default_jspport);
+    printf("Failed to get HWP server port \'%s\', using default \'%s\'.\n", hwpport, default_hwpport);
     serverPort = strtol(default_hwpport,&s,10);
     if(*s) {
       printf("Failed to get default HWP port, exiting.\n");
