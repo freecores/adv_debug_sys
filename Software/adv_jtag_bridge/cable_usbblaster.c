@@ -24,10 +24,26 @@
 #include <string.h>  // for memcpy()
 
 #include "usb.h"  // libusb header
-#include "cable_common.h"
+
+#include "cable_usbblaster.h"
 #include "errcodes.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
+
+jtag_cable_t usbblaster_cable_driver = {
+    .name = "usbblaster",
+    .inout_func = cable_usbblaster_inout,
+    .out_func = cable_usbblaster_out,
+    .init_func =cable_usbblaster_init ,
+    .opt_func = cable_usbblaster_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_common_read_write_bit,
+    .stream_out_func =  cable_usbblaster_write_stream,
+    .stream_inout_func = cable_usbblaster_read_stream,
+    .flush_func = NULL,
+    .opts = "",
+    .help = "no options\n",
+    };
 
 // USB constants for the USB Blaster
 // Valid endpoints: 0x81, 0x02, 0x06, 0x88
@@ -487,6 +503,10 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
   return retval;
 }
 
+jtag_cable_t *cable_usbblaster_get_driver(void)
+{
+  return &usbblaster_cable_driver; 
+}
 
 int cable_usbblaster_opt(int c, char *str)
 {

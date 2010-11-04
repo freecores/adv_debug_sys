@@ -4,6 +4,22 @@
 
 #include <stdint.h>
 
+
+typedef struct {
+  const char *name;
+  int (*inout_func)(uint8_t, uint8_t *);
+  int (*out_func)(uint8_t);
+  int (*init_func)();
+  int (*opt_func)(int, char *);
+  int (*bit_out_func)(uint8_t);
+  int (*bit_inout_func)(uint8_t, uint8_t *);
+  int (*stream_out_func)(uint32_t *, int, int);
+  int (*stream_inout_func)(uint32_t *, uint32_t *, int, int);
+  int (*flush_func)();
+  const char *opts;
+  const char *help;
+} jtag_cable_t;
+
 // Defines to use in the 'packet' args of cable_write_bit()
 // and cable_read_write_bit().  Note that while TRST is 
 // active low for JTAG hardware, here the TRST bit
@@ -21,6 +37,7 @@
 #define TDO_BIT  (0x20)
 
 // Cable subsystem / init routines
+void cable_setup(void);
 int cable_select(const char *cable);
 int cable_init();
 int cable_parse_opt(int c, char *str);

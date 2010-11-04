@@ -26,10 +26,46 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <ftdi.h>
+
 #include "cable_ft2232.h"
-#include "cable_common.h"
 #include "errcodes.h"
 int debug = 0;
+
+#define debug(...) //fprintf(stderr, __VA_ARGS__ )
+
+jtag_cable_t ft2232_cable_driver = {
+    .name = "ft2232",
+    .inout_func = NULL,
+    .out_func = NULL,
+    .init_func = cable_ftdi_init,
+    .opt_func = cable_ftdi_opt,
+    .bit_out_func = cable_ftdi_write_bit,
+    .bit_inout_func = cable_ftdi_read_write_bit,
+    .stream_out_func = cable_ftdi_write_stream,
+    .stream_inout_func = cable_ftdi_read_stream,
+    .flush_func = cable_ftdi_flush,
+    .opts = "",
+    .help = "no options\n",
+};
+
+usbconn_t * usbconn_ftdi_connect();
+int my_ftdi_write_data(struct ftdi_context *ftdi, unsigned char *buf, int size);
+char *my_ftdi_get_error_string (struct ftdi_context *ftdi);
+int my_ftdi_read_data(struct ftdi_context *ftdi, unsigned char *buf, int size);
+int my_ftdi_usb_open_desc(struct ftdi_context *ftdi, int vendor, int product, const char* description, const char* serial);
+void my_ftdi_deinit(struct ftdi_context *ftdi);
+int my_ftdi_usb_purge_buffers(struct ftdi_context *ftdi);
+int my_ftdi_usb_purge_rx_buffer(struct ftdi_context *ftdi);
+int my_ftdi_usb_purge_tx_buffer(struct ftdi_context *ftdi);
+int my_ftdi_usb_reset(struct ftdi_context *ftdi);
+int my_ftdi_set_latency_timer(struct ftdi_context *ftdi, unsigned char latency);
+int my_ftdi_set_baudrate(struct ftdi_context *ftdi, int baudrate);
+int my_ftdi_read_data_set_chunksize(struct ftdi_context *ftdi, unsigned int chunksize);
+int my_ftdi_write_data_set_chunksize(struct ftdi_context *ftdi, unsigned int chunksize);
+int my_ftdi_set_event_char(struct ftdi_context *ftdi, unsigned char eventch, unsigned char enable);
+int my_ftdi_set_error_char(struct ftdi_context *ftdi, unsigned char errorch, unsigned char enable);
+int my_ftdi_set_bitmode(struct ftdi_context *ftdi, unsigned char bitmask, unsigned char mode);
+int my_ftdi_usb_close(struct ftdi_context *ftdi);
 
 static int usbconn_ftdi_common_open( usbconn_t *conn);
 static void usbconn_ftdi_free( usbconn_t *conn );
@@ -766,6 +802,11 @@ int cable_ft2232_read_stream(usbconn_t *conn, unsigned char *buf, int len, int w
 /// ----------------------------------------------------------------------------------------------
 /// Advanced Jtag debugger driver interface.
 /// ----------------------------------------------------------------------------------------------
+
+jtag_cable_t *cable_ftdi_get_driver(void)
+{
+  return &ft2232_cable_driver; 
+}
 
 int cable_ftdi_init() {
 	int err = APP_ERR_NONE;

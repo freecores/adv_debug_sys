@@ -37,7 +37,7 @@
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
 
 // How many tries before an abort
-#define NUM_SOFT_RETRIES 5
+#define NUM_SOFT_RETRIES 0
 
 // for the klugde in tap_reset()
 extern int current_reg_idx[DBG_MAX_MODULES];

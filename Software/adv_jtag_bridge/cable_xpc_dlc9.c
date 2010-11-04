@@ -21,10 +21,25 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. */
 #include <unistd.h>  // for usleep()
 #include <stdlib.h>  // for sleep()
 
-
 #include "usb.h"  // libusb header
-#include "cable_common.h"
+
+#include "cable_xpc_dlc9.h"
 #include "errcodes.h"
+
+jtag_cable_t dlc9_cable_driver = {
+    .name ="xpc_usb" ,
+    .inout_func = cable_xpcusb_inout,
+    .out_func = cable_xpcusb_out,
+    .init_func = cable_xpcusb_init,
+    .opt_func = cable_xpcusb_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_xpcusb_read_write_bit,
+    .stream_out_func = cable_common_write_stream,
+    .stream_inout_func = cable_common_read_stream,
+    .flush_func = NULL,
+    .opts = "",
+    .help = "no options\n",
+   };
 
 #define USB_TIMEOUT 500
 
@@ -413,3 +428,7 @@ int cable_xpcusb_opt(int c, char *str)
     return APP_ERR_BAD_PARAM;
 }
 
+jtag_cable_t *cable_xpcusb_get_driver(void)
+{
+  return &dlc9_cable_driver; 
+}

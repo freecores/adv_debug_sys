@@ -356,7 +356,7 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
   (void)in_data;
   (void)out_data;
 
-    debug("Doing burst read, word size %d, word count %d, start address 0x%lX", word_size_bytes, word_count, start_address);
+    debug("Doing burst read, word size %d, word count %d, start address 0x%lX\n", word_size_bytes, word_count, start_address);
 
     if(word_count <= 0) {
       debug("Ignoring illegal read burst length (%d)\n", word_count);
@@ -373,21 +373,21 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
       else if(word_size_bytes == 2) opcode = DBG_WB_CMD_BREAD16;
       else if(word_size_bytes == 4) opcode = DBG_WB_CMD_BREAD32;
       else {
-	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words", word_size_bytes);
+	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words\n", word_size_bytes);
 	opcode = DBG_WB_CMD_BREAD32;
       }
       break;
     case DC_CPU0:
       if(word_size_bytes == 4) opcode = DBG_CPU0_CMD_BREAD32;
       else {
-	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words", word_size_bytes);
+	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words\n", word_size_bytes);
 	opcode = DBG_CPU0_CMD_BREAD32;
       }
       break;
     case DC_CPU1:
       if(word_size_bytes == 4) opcode = DBG_CPU1_CMD_BREAD32;
       else {
-	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words", word_size_bytes);
+	printf("Tried burst read with invalid word size (%0x), defaulting to 4-byte words\n", word_size_bytes);
 	opcode = DBG_CPU0_CMD_BREAD32;
       }
       break;
@@ -525,7 +525,7 @@ int adbg_wb_burst_read(int word_size_bytes, int word_count, unsigned long start_
      }
      goto  wb_burst_read_retry_full;
    }
-   else debug("CRC OK!");
+   else debug("CRC OK!\n");
 
 
    // Now, read the error register, and retry/recompute as necessary.
@@ -738,7 +738,7 @@ int adbg_wb_burst_write(void *data, int word_size_bytes, int word_count, unsigne
      if(!retry_do()) { printf("Retry count exceeded!  Abort!\n\n"); exit(1);}
      goto  wb_burst_write_retry_full;
    }
-   else debug("CRC OK!");
+   else debug("CRC OK!\n");
 
 
    // Now, read the error register and retry/recompute as needed

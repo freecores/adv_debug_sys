@@ -448,6 +448,8 @@ int main(int argc,  char *argv[]) {
     return 1;
   }
 
+  cable_setup();
+
   parse_args(argc, argv);
 
   if(cable_init() != APP_ERR_NONE) {

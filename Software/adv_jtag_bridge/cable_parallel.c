@@ -22,11 +22,48 @@
 #include <stdio.h>
 #include <sys/io.h>  // for inb(), outb()
 #include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
+#include <time.h>
 
-#include "cable_common.h"
+#include "cable_parallel.h"
 #include "errcodes.h"
 
+#ifdef __PARALLEL_TIMER_BUSY_WAIT__
+ #if ((_POSIX_TIMERS) && (_POSIX_CPUTIME))
+ #define PARALLEL_USE_PROCESS_TIMER
+ #endif
+#endif
+
+jtag_cable_t xpc3_cable_driver = {
+    .name = "xpc3",
+    .inout_func = cable_xpc3_inout,
+    .out_func = cable_xpc3_out,
+    .init_func = cable_parallel_init,
+    .opt_func = cable_parallel_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_common_read_write_bit,
+    .stream_out_func = cable_common_write_stream,
+    .stream_inout_func = cable_common_read_stream,
+    .flush_func = NULL,
+    .opts = "p:",
+    .help = "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n"
+    };
+
+jtag_cable_t xess_cable_driver = {
+    .name = "xess",
+    .inout_func = cable_xess_inout,
+    .out_func = cable_xess_out,
+    .init_func = cable_parallel_init,
+    .opt_func = cable_parallel_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_common_read_write_bit,
+    .stream_out_func = cable_common_write_stream,
+    .stream_inout_func = cable_common_read_stream,
+    .flush_func = NULL,
+    .opts = "p:",
+    .help = "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n",
+    };
 
 #define LPT_READ (base+1)
 #define LPT_WRITE base
@@ -38,7 +75,11 @@ static int cable_parallel_inout(uint8_t value, uint8_t *inval);
 
 static int base = 0x378;
 
-
+#ifdef __PARALLEL_TIMER_BUSY_WAIT__
+ #ifndef PARALLEL_USE_PROCESS_TIMER
+ struct timeval last_tv;
+ #endif
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////
 /*-------------------------------------[ Parallel port specific functions ]---*/
@@ -46,8 +87,6 @@ static int base = 0x378;
 
 int cable_parallel_init()
 {
-
-  //#ifndef WIN32
   if (ioperm(base, 3, 1)) {
     fprintf(stderr, "Couldn't get the port at %x\n", base);
     perror("Root privileges are required.\n");
@@ -56,7 +95,17 @@ int cable_parallel_init()
   printf("Connected to parallel port at %x\n", base);
   printf("Dropping root privileges.\n");
   setreuid(getuid(), getuid());
-  //#endif
+
+#ifdef __PARALLEL_TIMER_BUSY_WAIT__
+ #ifdef PARALLEL_USE_PROCESS_TIMER
+  struct timespec ts;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 0;
+  clock_settime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+ #else
+  gettimeofday(&last_tv, NULL);
+ #endif
+#endif
 
   return APP_ERR_NONE;
 }
@@ -79,22 +128,111 @@ int cable_parallel_opt(int c, char *str)
 }
 
 /*-----------------------------------------[ Physical board wait function ]---*/
+
+/* Multiple users have reported poor performance of parallel cables,
+ * which has been traced to various sleep functions sleeping much longer than 
+ * microseconds.  The same users have reported error-free functionality
+ * and an order of magnitude improvement in upload speed.
+ * Other users have reported errors when running without a wait.
+ * Impact apparently limits the frequency of parallel JTAG cables
+ * to 200 kHz, and some clones fail at higher speeds.
+ */ 
+
+
+
+#ifdef __PARALLEL_SLEEP_WAIT__
 void cable_parallel_phys_wait()
 {
-  /* Multiple users have reported poor performance of parallel cables,
-   * which has been traced to usleep() sleeping much longer than 
-   * microseconds.  The same users have reported error-free functionality
-   * and an order of magnitude improvement in upload speed.
-   * If you get strange data errors while running, add this sleep back
-   * in, or perhaps a busy-wait delay. 
-   */ 
-  /* usleep(10); */
+  struct timespec ts;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 2500;
+  nanosleep(&ts, NULL);
+}
+#else
+
+ #ifdef __PARALLEL_TIMER_BUSY_WAIT__
+
+  #ifndef PARALLEL_USE_PROCESS_TIMER
+
+/* Helper function needed if process timer isn't implemented */
+/* do x-y */
+int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
+{
+  /* Perform the carry for the later subtraction by updating y. */
+  if (x->tv_usec < y->tv_usec) {
+    int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+    y->tv_usec -= 1000000 * nsec;
+    y->tv_sec += nsec;
+  }
+  if (x->tv_usec - y->tv_usec > 1000000) {
+    int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+    y->tv_usec += 1000000 * nsec;
+    y->tv_sec -= nsec;
+  }
+
+  /* Compute the time remaining to wait.
+     tv_usec is certainly positive. */
+  result->tv_sec = x->tv_sec - y->tv_sec;
+  result->tv_usec = x->tv_usec - y->tv_usec;
+
+  /* Return 1 if result is negative. */
+  return x->tv_sec < y->tv_sec;
+}
+  #endif
+
+
+void cable_parallel_phys_wait()
+{
+  /* This busy wait attempts to make the frequency exactly 200kHz,
+   * including the processing time between ticks.
+   * This means a period of 5us, or half a period of 2.5us.
+   */
+  #ifdef PARALLEL_USE_PROCESS_TIMER
+  struct timespec ts;
+  do
+    {
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts); 
+    } while((ts.tv_sec == 0) && (ts.tv_nsec < 2500));
+
+  /* Doing the set after the check means that processing time
+   * is not added to the wait. */
+  ts.tv_sec = 0;
+  ts.tv_nsec = 0;
+  clock_settime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+  #else
+  struct timeval now_tv;
+  struct timeval results_tv;
+  do
+    {
+      gettimeofday(&now_tv, NULL);
+      timeval_subtract (&results_tv, &now_tv, &last_tv);
+    } while((results_tv.tv_sec == 0) && (results_tv.tv_usec < 3));
+  last_tv = now_tv;
+  #endif
 }
 
+ #else  // NO WAIT
+
+void cable_parallel_phys_wait()
+{
+  // No wait, run max speed
+}
+
+ #endif
+#endif
+
+
 /*----------------------------------------------[ xpc3 specific functions ]---*/
+jtag_cable_t *cable_xpc3_get_driver(void)
+{
+  return &xpc3_cable_driver; 
+}
+
 int cable_xpc3_out(uint8_t value)
 {
   uint8_t out = 0;
+
+  cable_parallel_phys_wait();  // Limit the max clock rate if necessary
 
   /* First convert the bits in value byte to the ones that the cable wants */
   if(value & TCLK_BIT)
@@ -114,6 +252,8 @@ int cable_xpc3_inout(uint8_t value, uint8_t *inval)
   uint8_t in;
   int retval;
   uint8_t out = 0;
+
+  cable_parallel_phys_wait();  // Limit the max clock rate if necessary
 
   /* First convert the bits in value byte to the ones that the cable wants */
   if(value & TCLK_BIT)
@@ -136,9 +276,16 @@ int cable_xpc3_inout(uint8_t value, uint8_t *inval)
 }
 
 /*----------------------------------------------[ xess specific functions ]---*/
+jtag_cable_t *cable_xess_get_driver(void)
+{
+  return &xess_cable_driver; 
+}
+
 int cable_xess_out(uint8_t value)
 {
   uint8_t out = 0;
+
+  cable_parallel_phys_wait();  // Limit the max clock rate if necessary
 
   /* First convert the bits in value byte to the ones that the cable wants */
   if(value & TCLK_BIT)
@@ -153,11 +300,13 @@ int cable_xess_out(uint8_t value)
   return cable_parallel_out(out);
 }
 
-uint8_t cable_xess_inout(uint8_t value, uint8_t *inval)
+int cable_xess_inout(uint8_t value, uint8_t *inval)
 {
   uint8_t in;
   int retval;
   uint8_t out = 0;
+
+  cable_parallel_phys_wait();  // Limit the max clock rate if necessary
 
   /* First convert the bits in value byte to the ones that the cable wants */
   if(value & TCLK_BIT)

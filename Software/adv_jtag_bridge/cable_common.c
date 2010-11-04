@@ -24,146 +24,68 @@
 
 
 #include "cable_common.h"
-#include "cable_parallel.h"
 #include "cable_sim.h"
+
+#ifdef __SUPPORT_PARALLEL_CABLES__
+#include "cable_parallel.h"
+#endif
+
+#ifdef __SUPPORT_USB_CABLES__ 
 #include "cable_usbblaster.h"
-#include "cable_ft2232.h"
 #include "cable_xpc_dlc9.h"
+
+ #ifdef __SUPPORT_FTDI_CABLES__ 
+ #include "cable_ft245.h"
+ #include "cable_ft2232.h"
+ #endif
+
+#endif
+
 #include "errcodes.h"
 
 #define debug(...)   //fprintf(stderr, __VA_ARGS__ )
 
-static struct jtag_cable {
-  const char *name;
-  int (*inout_func)(uint8_t, uint8_t *);
-  int (*out_func)(uint8_t);
-  int (*init_func)();
-  void (*wait_func)();
-  int (*opt_func)(int, char *);
-  int (*bit_out_func)(uint8_t);
-  int (*bit_inout_func)(uint8_t, uint8_t *);
-  int (*stream_out_func)(uint32_t *, int, int);
-  int (*stream_inout_func)(uint32_t *, uint32_t *, int, int);
-  int (*flush_func)();
-  const char *opts;
-  const char *help;
-} jtag_cables[] = {
-  { "rtl_sim", 
-    cable_rtl_sim_inout, 
-    cable_rtl_sim_out, 
-    cable_rtl_sim_init, 
-    NULL, 
-    cable_rtl_sim_opt,
-    cable_common_write_bit,
-    cable_common_read_write_bit,
-    cable_common_write_stream, 
-    cable_common_read_stream,
-    NULL,
-    "d:",
-    "-d [directory] Directory in which gdb_in.dat/gdb_out.dat may be found\n" },
-  { "vpi", 
-    cable_vpi_inout, 
-    cable_vpi_out, 
-    cable_vpi_init, 
-    cable_vpi_wait, 
-    cable_vpi_opt,
-    cable_common_write_bit,
-    cable_common_read_write_bit,
-    cable_common_write_stream, 
-    cable_common_read_stream,
-    NULL,
-    "s:p:",
-    "-p [port] Port number that the VPI module is listening on\n\t-s [server] Server that the VPI module is running on\n" },
-#ifdef __SUPPORT_PARALLEL_CABLES__
-  { "xpc3", 
-    cable_xpc3_inout, 
-    cable_xpc3_out, 
-    cable_parallel_init, 
-    cable_parallel_phys_wait, 
-    cable_parallel_opt,
-    cable_common_write_bit,
-    cable_common_read_write_bit,
-    cable_common_write_stream, 
-    cable_common_read_stream,
-    NULL,
-    "p:",
-    "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n" },
-  { "xess", 
-    cable_xess_inout, 
-    cable_xess_out, 
-    cable_parallel_init, 
-    cable_parallel_phys_wait, 
-    cable_parallel_opt,
-    cable_common_write_bit,
-    cable_common_read_write_bit,
-    cable_common_write_stream, 
-    cable_common_read_stream,
-    NULL,
-    "p:",
-    "-p [port] Which port to use when communicating with the parport hardware (eg. 0x378)\n" },
-#endif
-#ifdef __SUPPORT_USB_CABLES__
-  { "usbblaster", 
-    cable_usbblaster_inout, 
-    cable_usbblaster_out, 
-    cable_usbblaster_init, 
-    NULL, 
-    cable_usbblaster_opt,
-    cable_common_write_bit,
-    cable_common_read_write_bit,
-    cable_usbblaster_write_stream, 
-    cable_usbblaster_read_stream,
-    NULL,
-    "",
-    "no options\n" },
-  { "xpc_usb", 
-    cable_xpcusb_inout, 
-    cable_xpcusb_out, 
-    cable_xpcusb_init, 
-    NULL, 
-    cable_xpcusb_opt,
-    cable_common_write_bit,
-    cable_xpcusb_read_write_bit,
-    cable_common_write_stream, 
-    cable_common_read_stream,
-    NULL,
-    "",
-    "no options\n" },
-#ifdef __SUPPORT_FTDI_CABLES__
-  { "ft2232",
-    NULL,
-    NULL,
-    cable_ftdi_init,
-    NULL,
-    cable_ftdi_opt,
-    cable_ftdi_write_bit,
-    cable_ftdi_read_write_bit,
-    cable_ftdi_write_stream,
-    cable_ftdi_read_stream,
-    cable_ftdi_flush,
-    "",
-    "no options\n" },
-#endif  // __SUPPORT_FTDI_CABLES__
-#endif  // __SUPPORT_USB_CABLES__
-  { NULL, NULL, NULL, NULL, 
-    NULL, NULL, NULL, NULL, 
-    NULL, NULL, NULL, NULL, NULL } };
+#define JTAG_MAX_CABLES 16
+jtag_cable_t *jtag_cables[JTAG_MAX_CABLES];
 
-static struct jtag_cable *jtag_cable_in_use = NULL; /* The currently selected cable */
+static jtag_cable_t *jtag_cable_in_use = NULL; /* The currently selected cable */
 
 
 /////////////////////////////////////////////////////////////////////////////////////
 // Cable subsystem / init functions
 
+void cable_setup(void)
+{
+  int i = 0;
+
+  memset(jtag_cables, 0, sizeof(jtag_cables));
+
+  jtag_cables[i++] = cable_rtl_get_driver();
+  jtag_cables[i++] = cable_vpi_get_driver();
+
+#ifdef __SUPPORT_PARALLEL_CABLES__
+  jtag_cables[i++] = cable_xpc3_get_driver();
+  jtag_cables[i++] = cable_xess_get_driver();
+#endif
+
+#ifdef  __SUPPORT_USB_CABLES__
+  jtag_cables[i++] = cable_usbblaster_get_driver();
+  jtag_cables[i++] = cable_xpcusb_get_driver();
+ #ifdef __SUPPORT_FTDI_CABLES__
+  jtag_cables[i++] = cable_ftdi_get_driver();
+  jtag_cables[i++] = cable_ft245_get_driver();
+ #endif
+#endif
+}
 
 /* Selects a cable for use */
 int cable_select(const char *cable)
 {
   int i;
 
-  for(i = 0; jtag_cables[i].name; i++) {
-    if(!strcmp(cable, jtag_cables[i].name)) {
-      jtag_cable_in_use = &jtag_cables[i];
+  for(i = 0; jtag_cables[i] != NULL; i++) {
+    if(!strcmp(cable, jtag_cables[i]->name)) {
+      jtag_cable_in_use = jtag_cables[i];
       return APP_ERR_NONE;
     }
   }
@@ -198,17 +120,17 @@ void cable_print_help()
   int i;
   printf("Available cables: ");
 
-  for(i = 0; jtag_cables[i].name; i++) {
+  for(i = 0; jtag_cables[i]; i++) {
     if(i)
       printf(", ");
-    printf("%s", jtag_cables[i].name);
+    printf("%s", jtag_cables[i]->name);
   }
 
   printf("\n\nOptions availible for the cables:\n");
-  for(i = 0; jtag_cables[i].name; i++) {
-    if(!jtag_cables[i].help)
+  for(i = 0; jtag_cables[i]; i++) {
+    if(!jtag_cables[i]->help)
       continue;
-    printf("  %s:\n    %s", jtag_cables[i].name, jtag_cables[i].help);
+    printf("  %s:\n    %s", jtag_cables[i]->name, jtag_cables[i]->help);
   }
 }
 
@@ -260,11 +182,9 @@ int cable_common_write_bit(uint8_t packet) {
   if(packet & TRST) data &= ~TRST_BIT;
 
   err |= jtag_cable_in_use->out_func(data);
-  if (jtag_cable_in_use->wait_func != NULL) jtag_cable_in_use->wait_func();
 
   /* raise clock, to do write */
   err |= jtag_cable_in_use->out_func(data | TCLK_BIT);
-   if (jtag_cable_in_use->wait_func != NULL) jtag_cable_in_use->wait_func();  
 
   return err;
 }
@@ -279,9 +199,7 @@ int cable_common_read_write_bit(uint8_t packet_out, uint8_t *bit_in) {
   if(packet_out & TRST) data &= ~TRST_BIT;
 
   err |= jtag_cable_in_use->out_func(data);  // drop the clock to make data available, set the out data
-  if (jtag_cable_in_use->wait_func != NULL) jtag_cable_in_use->wait_func();
   err |= jtag_cable_in_use->inout_func((data | TCLK_BIT), bit_in);  // read in bit, clock high for out bit.
-  if (jtag_cable_in_use->wait_func != NULL) jtag_cable_in_use->wait_func();
 
   return err;
 }
@@ -297,7 +215,7 @@ int cable_common_write_stream(uint32_t *stream, int len_bits, int set_last_bit) 
   uint8_t out;
   int err = APP_ERR_NONE;
 
-  debug("writeSrrm%d(", len_bits);
+  debug("writeStrm%d(", len_bits);
   for(i = 0; i < len_bits - 1; i++) {
     out = (stream[index] >> bits_this_index) & 1;
     err |= cable_write_bit(out);

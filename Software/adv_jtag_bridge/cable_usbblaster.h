@@ -3,7 +3,9 @@
 #define _CABLE_USBBLASTER_H_
 
 #include <stdint.h>
+#include "cable_common.h"
 
+jtag_cable_t *cable_usbblaster_get_driver(void);
 int cable_usbblaster_init();
 int cable_usbblaster_out(uint8_t value);
 int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit);

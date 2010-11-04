@@ -19,12 +19,12 @@ SUPPORT_USB_CABLES=true
 # SUPPORT_USB_CABLES must also be set to 'true' to support FTDI-based cables.
 SUPPORT_FTDI_CABLES=true
 
-# Some users have reported failures with the standard libusb-based USBBlaster
-# driver, but success using a libftdi-based driver.  Set this 'true' to use
-# this libftdi-based driver.  Do not use except as a last resort - this driver
-# does not use the USB-Blaster's high speed transfer mode, making it very slow.
-# SUPPORT_FTDI_CABLES must also be set 'true' to use this driver.
-USE_ALT_FTDI_USBBLASTER_DRIVER=false
+# Some Xilinx Parallel Cable IIIs will work just as fast as we can drive them.
+# Some (clones) require us to limit their clock rate.  Three schemes are defined:
+# "sleep_wait": tries not to use CPU, but may sleep much longer than desired
+# "timer_wait": does busy-wait polling on a timer
+# "no_wait": does not wait, runs as fast as possible
+XPC3_LIMIT_SCHEME=timer_wait
 
 # Normal error-checking on every word of a burst write can cause a significant
 # slowdown, especially when using the USB-Blaster cable.  Setting this option
@@ -58,7 +58,7 @@ ifeq ($(BUILD_ENVIRONMENT),linux)
 # with the -L<dir> command.
 CFLAGS = -g -O2 -Wall
 CC = gcc
-LIBS = -lpthread
+LIBS = -lpthread -lrt
 INCLUDEDIRS = -I/usr/local/include/libusb-1.0/ -I/usr/include/ -I/usr/local/include/
 endif
 
@@ -66,7 +66,7 @@ ifeq ($(BUILD_ENVIRONMENT),cygwin)
 # These are for cygwin.  It assumes libusb.a is in the current directory.
 CFLAGS = -g -O2 -Wall
 CC = gcc
-LIBS = -L. -lioperm -lpthread
+LIBS = -L. -lioperm -lpthread -lrt
 INCLUDEDIRS = -I/usr/local/include/
 endif
 
@@ -75,7 +75,7 @@ ifeq ($(BUILD_ENVIRONMENT),freebsd)
 # libusb(8) is present in the base system (/usr/lib/libusb* exists).
 CFLAGS = -g -O2 -Wall
 CC = gcc
-LIBS = -L. -L/usr/local/lib -lpthread
+LIBS = -L. -L/usr/local/lib -lpthread -lrt
 INCLUDEDIRS = -I/usr/local/include/
 # We don't have a support for parallel cables on FreeBSD yet.
 SUPPORT_PARALLEL_CABLES=false
@@ -95,6 +95,16 @@ endif
 
 ifeq ($(JSP_OPTIMIZE_FOR_USB),true)
 CFLAGS += -DOPTIMIZE_JSP_FOR_USB
+endif
+
+ifeq ($(XPC3_LIMIT_SCHEME),sleep_wait)
+CFLAGS += -D__PARALLEL_SLEEP_WAIT__
+else
+ifeq ($(XPC3_LIMIT_SCHEME),timer_wait)
+CFLAGS += -D__PARALLEL_TIMER_BUSY_WAIT__
+else
+# no_wait is the default, nothing to define
+endif
 endif
 
 
@@ -126,29 +136,16 @@ endif
 
 ifeq ($(SUPPORT_USB_CABLES),true)
 CFLAGS += -D__SUPPORT_USB_CABLES__
-HEADERS += cable_xpc_dlc9.h
-SOURCES += cable_xpc_dlc9.c
-OBJECTS += cable_xpc_dlc9.o
-
-ifeq ($(USE_ALT_FTDI_USBBLASTER_DRIVER),false)
-HEADERS += cable_usbblaster.h
-SOURCES += cable_usbblaster.c
-OBJECTS += cable_usbblaster.o
-endif
+HEADERS += cable_xpc_dlc9.h cable_usbblaster.h
+SOURCES += cable_xpc_dlc9.c cable_usbblaster.c
+OBJECTS += cable_xpc_dlc9.o cable_usbblaster.o
 
 ifeq ($(SUPPORT_FTDI_CABLES),true)
 CFLAGS += -D__SUPPORT_FTDI_CABLES__
 LIBS += -lftdi
-HEADERS += cable_ft2232.h
-SOURCES += cable_ft2232.c
-OBJECTS += cable_ft2232.o
-
-ifeq ($(USE_ALT_FTDI_USBBLASTER_DRIVER),true)
-HEADERS += cable_usbblaster.h
-SOURCES += cable_usbblaster_ftdi.c
-OBJECTS += cable_usbblaster_ftdi.o
-endif
-
+HEADERS += cable_ft2232.h cable_ft245.h
+SOURCES += cable_ft2232.c cable_ft245.c
+OBJECTS += cable_ft2232.o cable_ft245.o
 endif
 
 # libusb must follow libftdi in the list of libraries

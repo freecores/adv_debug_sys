@@ -30,24 +30,58 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-
-#include "cable_common.h"
+#include "cable_sim.h"
 #include "errcodes.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
 
 /* Only used in the vpi */
+jtag_cable_t vpi_cable_driver = {
+    .name = "vpi",
+    .inout_func = cable_vpi_inout,
+    .out_func = cable_vpi_out,
+    .init_func = cable_vpi_init,
+    .opt_func = cable_vpi_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_common_read_write_bit,
+    .stream_out_func = cable_common_write_stream,
+    .stream_inout_func = cable_common_read_stream,
+    .flush_func = NULL,
+    .opts = "s:p:",
+    .help = "-p [port] Port number that the VPI module is listening on\n\t-s [server] Server that the VPI module is running on\n",
+};
+
 static int vpi_comm;
 static int vpi_port = 4567;
 static char *vpi_server = "localhost";
 
 /* Only used for the rtl_sim */
+jtag_cable_t rtl_cable_driver = {
+    .name ="rtl_sim",
+    .inout_func = cable_rtl_sim_inout,
+    .out_func = cable_rtl_sim_out,
+    .init_func = cable_rtl_sim_init,
+    .opt_func = cable_rtl_sim_opt,
+    .bit_out_func = cable_common_write_bit,
+    .bit_inout_func = cable_common_read_write_bit,
+    .stream_out_func = cable_common_write_stream,
+    .stream_inout_func = cable_common_read_stream,
+    .flush_func = NULL,
+    .opts = "d:",
+    .help = "-d [directory] Directory in which gdb_in.dat/gdb_out.dat may be found\n"
+};
+
 static char *gdb_in = "gdb_in.dat";
 static char *gdb_out = "gdb_out.dat";
 
 
 
 /*-------------------------------------------[ rtl_sim specific functions ]---*/
+jtag_cable_t *cable_rtl_get_driver(void)
+{
+  return &rtl_cable_driver; 
+}
+
 int cable_rtl_sim_init()
 {
   FILE *fin = fopen (gdb_in, "wt+");
@@ -84,7 +118,7 @@ int cable_rtl_sim_out(uint8_t value)
   return APP_ERR_NONE;
 }
 
-uint8_t cable_rtl_sim_inout(uint8_t value, uint8_t *inval)
+int cable_rtl_sim_inout(uint8_t value, uint8_t *inval)
 {
   FILE *fin = 0;
   char ch;
@@ -144,6 +178,12 @@ int cable_rtl_sim_opt(int c, char *str)
 }
 
 /*-----------------------------------------------[ VPI specific functions ]---*/
+jtag_cable_t *cable_vpi_get_driver(void)
+{
+  return &vpi_cable_driver; 
+}
+
+
 int cable_vpi_init()
 {
   struct sockaddr_in addr;
@@ -193,6 +233,9 @@ int cable_vpi_out(uint8_t value)
       return APP_ERR_CONNECT;
     }
   } while(ack != (value | 0x10));
+
+  cable_vpi_wait();  // finish the transaction
+
   return APP_ERR_NONE;
 }
 
@@ -213,6 +256,9 @@ int cable_vpi_inout(uint8_t value, uint8_t *inval)
   cable_vpi_out(value);
 
   *inval = dat;
+
+  cable_vpi_wait();  // finish the transaction
+
   return APP_ERR_NONE;
 }
 
