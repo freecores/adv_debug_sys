@@ -44,6 +44,9 @@
 // CVS Revision History
 //
 // $Log: xsv_fpga_top.v,v $
+// Revision 1.6  2011-02-14 04:16:25  natey
+// Major functionality enhancement - now duplicates the full OR1K self-test performed by adv_jtag_bridge.
+//
 // Revision 1.5  2010-01-16 02:15:22  Nathan
 // Updated to match changes in hardware.  Added support for hi-speed mode.
 //
@@ -146,7 +149,6 @@ wire 	[3:0]		wb_dm_sel_o;
 wire			wb_dm_we_o;
 wire 			wb_dm_stb_o;
 wire			wb_dm_cyc_o;
-wire			wb_dm_cab_o;
 wire			wb_dm_ack_i;
 wire			wb_dm_err_i;
 
@@ -193,7 +195,6 @@ wire			wb_rim_err_i;
 wire			wb_rim_rty_i = 1'b0;
 wire			wb_rim_we_o;
 wire			wb_rim_stb_o;
-wire			wb_rim_cab_o;
 //wire	[31:0]		wb_rif_adr;
 //reg			prefix_flash;
 
@@ -210,7 +211,6 @@ wire			wb_rdm_err_i;
 wire			wb_rdm_rty_i = 1'b0;
 wire			wb_rdm_we_o;
 wire			wb_rdm_stb_o;
-wire			wb_rdm_cab_o;
 
 //
 // RISC misc
@@ -527,7 +527,6 @@ or1200_top or1200_top (
 	.iwb_rty_i	( wb_rim_rty_i ),
 	.iwb_we_o	( wb_rim_we_o  ),
 	.iwb_stb_o	( wb_rim_stb_o ),
-	.iwb_cab_o	( wb_rim_cab_o ),
 
 	// WISHBONE Data Master
 	.dwb_clk_i	( wb_clk ),
@@ -542,7 +541,6 @@ or1200_top or1200_top (
 	.dwb_rty_i	( wb_rdm_rty_i ),
 	.dwb_we_o	( wb_rdm_we_o  ),
 	.dwb_stb_o	( wb_rdm_stb_o ),
-	.dwb_cab_o	( wb_rdm_cab_o ),
 
 	// Debug
 	.dbg_stall_i	( dbg_stall ),  // Set to 1'b0 if debug is absent / broken
@@ -733,7 +731,7 @@ wb_conbus_top #(.s0_addr_w  (`APP_ADDR_DEC_W),
 	// WISHBONE Initiator 3
 	.m3_cyc_i	( wb_dm_cyc_o ),
 	.m3_stb_i	( wb_dm_stb_o ),
-	.m3_cab_i	( wb_dm_cab_o ),
+	.m3_cab_i	( 1'b0 ),
 	.m3_adr_i	( wb_dm_adr_o ),
 	.m3_sel_i	( wb_dm_sel_o ),
 	.m3_we_i	( wb_dm_we_o  ),
@@ -745,7 +743,7 @@ wb_conbus_top #(.s0_addr_w  (`APP_ADDR_DEC_W),
 	// WISHBONE Initiator 4
 	.m4_cyc_i	( wb_rdm_cyc_o ),
 	.m4_stb_i	( wb_rdm_stb_o ),
-	.m4_cab_i	( wb_rdm_cab_o ),
+	.m4_cab_i	( 1'b0 ),
 	.m4_adr_i	( wb_rdm_adr_o ),
 	.m4_sel_i	( wb_rdm_sel_o ),
 	.m4_we_i	( wb_rdm_we_o  ),
@@ -757,7 +755,7 @@ wb_conbus_top #(.s0_addr_w  (`APP_ADDR_DEC_W),
 	// WISHBONE Initiator 5
 	.m5_cyc_i	( wb_rim_cyc_o ),
 	.m5_stb_i	( wb_rim_stb_o ),
-	.m5_cab_i	( wb_rim_cab_o ),
+	.m5_cab_i	( 1'b0 ),
 	.m5_adr_i	( wb_rim_adr_o ),
 	.m5_sel_i	( wb_rim_sel_o ),
 	.m5_we_i	( wb_rim_we_o  ),

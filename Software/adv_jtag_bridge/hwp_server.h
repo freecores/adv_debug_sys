@@ -26,6 +26,7 @@
 void hwp_init(int portNum);
 int hwp_server_start(void);
 void hwp_server_stop(void);
-
+int hwp_get_available_watchpoint(void);
+void hwp_return_watchpoint(int wp);
 
 #endif

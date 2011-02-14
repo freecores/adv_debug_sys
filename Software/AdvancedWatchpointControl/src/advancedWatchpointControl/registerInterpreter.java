@@ -134,9 +134,10 @@ public class registerInterpreter {
 		}
 		val = val << 5;
 		long mask = 7 << 5;
-		long tmp = registers.getDCR(whichWP) & (~mask);
+		long tmp = registers.getDCR(whichWP);
+		tmp &= (~mask);
 		tmp |= val;
-		registers.setDCR(whichWP, val);
+		registers.setDCR(whichWP, tmp);
 	}
 	
 	public compareType getWPCompareType(int whichWP) {
@@ -250,7 +251,7 @@ public class registerInterpreter {
 		long mask = 3 << (2*whichWP);
 		long tmp = registers.getDMR1() & (~mask);
 		tmp |= val;
-		registers.setDMR1(val);
+		registers.setDMR1(tmp);
 	}
 	
 	public int getWPCounterAssign(int whichWP) {

@@ -67,6 +67,12 @@ int hwp_target_is_running = 0;
 int use_cached_dmr2 = 0;
 uint32_t cached_dmr2 = 0;
 
+/* To track which watchpoints are in use by an external program,
+ * so that the RSP server can have the unused ones for GDB
+ */
+#define HWP_MAX_WP 8
+unsigned char hwp_in_use[HWP_MAX_WP];
+
 /*! String to map hex digits to chars */
 static const char hexchars[]="0123456789abcdef";
 
@@ -89,6 +95,7 @@ void hwp_reg2hex (unsigned long int val, char *buf);
 int hwp_hex(int c);
 void hwp_report_run(void);
 void hwp_report_stop(void);
+void hwp_set_in_use(unsigned int wp, unsigned char inuse);
 
 /*----------------------------------------------------------*/
 /* Public API                                               */
@@ -102,9 +109,48 @@ void hwp_init(int portNum)
   int optval; /* Socket options */
   char portnum[6];  /* portNum as a string */
   void *addr;
+  int i, errcode;
+  uint32_t regaddr, tmp;
 
   debug("HWP Server initializing\n");
 
+  /* First thing's first:  Check if there are any HWP. 
+  * Read all DCR, mark which are present.*/
+  status = 0;
+  for(i = 0; i < HWP_MAX_WP; i++)
+    {
+      regaddr = SPR_DCR(i);
+      errcode = dbg_cpu0_read(regaddr, &tmp);
+      if(errcode != APP_ERR_NONE)
+	{
+	  fprintf(stderr, "ERROR reading DCR %i at startup! %s\n", i,  get_err_string(errcode));
+	  hwp_set_in_use(i, 1);
+	}
+      else
+	{
+	  if(tmp & 0x1)  /* HWP present */
+	    {
+	      hwp_set_in_use(i, 0);
+	      status++;
+	    }
+	  else  /* HWP not implemented */
+	    {
+	      hwp_set_in_use(i, 1);
+	    }
+	}
+      debug("HWP %i is %s\n", i, hwp_in_use[i] ? "absent":"present");
+    }
+
+  if(status > 0)
+    {
+      fprintf(stderr, "HWP server initializing with %i watchpoints available\n", status);
+    }
+  else
+    {
+      fprintf(stderr, "No watchpoint hardware found, HWP server not starting\n");
+    }
+
+  /* We have watchpoint hardware.  Initialize the server. */
   hwp_server_fd      = -1;
   hwp_client_fd      = -1;
   hwp_portnum = portNum;
@@ -724,6 +770,8 @@ void hwp_write_reg (struct rsp_buf *buf)
   unsigned int  regnum;
   char          valstr[9];		/* Allow for EOS on the string */
   unsigned int  errcode = APP_ERR_NONE;
+  int dcridx;
+  uint32_t val, cc, ct;
 
   /* Break out the fields from the data */
   if (2 != sscanf (buf->data, "P%x=%8s", &regnum, valstr))
@@ -735,7 +783,8 @@ void hwp_write_reg (struct rsp_buf *buf)
   
   /* Set the relevant register.  We assume that the client is not
    * GDB, and no register number translation is needed. */
-  errcode = dbg_cpu0_write(regnum, hwp_hex2reg(valstr));
+  val =  hwp_hex2reg(valstr);
+  errcode = dbg_cpu0_write(regnum, val);
 
   if(errcode == APP_ERR_NONE) {
     debug("Wrote reg 0x%X with val 0x%X (%s)\n", regnum, hwp_hex2reg(valstr), valstr);
@@ -745,6 +794,28 @@ void hwp_write_reg (struct rsp_buf *buf)
     fprintf(stderr, "Error writing register: %s\n", get_err_string(errcode));
     hwp_put_str_packet(hwp_client_fd, "E01");
   }
+
+  /* A bit of hackery: Determine if this write enables a comparison on a DCR.
+   * If so, then we mark this HWP as in use, so that GDB/RSP cannot use it.
+   * Note that there's no point making the HWP client check which watchpoints are in
+   * use - GDB only sets HWP as it is starting the CPU, and clears them
+   * immediately after a stop.  So as far as the HWP client would see, GDB/RSP
+   * never uses any watchpoints.
+   */
+  
+  if((regnum >= SPR_DCR(0)) && (regnum <= SPR_DCR(7)))
+    {
+      dcridx = regnum - SPR_DCR(0);
+      /* If the 'compare condition' (cc) or 'compare to' (ct) are 0,
+       * then matching is disabled and we can mark this HWP not in use.
+       */ 
+      cc = val & 0x0E;
+      ct = val & 0xE0;
+      if ((cc == 0) || (ct == 0))
+	hwp_set_in_use(dcridx, 0);
+      else
+	hwp_set_in_use(dcridx, 1);
+    }
 
 }	/* hwp_write_reg() */
 
@@ -924,3 +995,63 @@ void hwp_report_run(void)
 
 }  /* hwp_report_run() */
 
+/* Used by the HWP server to indicate which HWP are
+ * in long-term use by an external client
+ */
+void hwp_set_in_use(unsigned int wp, unsigned char inuse)
+{
+  if(wp < HWP_MAX_WP)
+    {
+      hwp_in_use[wp] = inuse;
+      debug("HWP setting wp %i status to %i\n", wp, inuse); 
+    }
+  else
+    fprintf(stderr, "ERROR! value %i out of range when setting HWP in use!\n", wp);
+}
+
+/* Called by the RSP server to get any one unused HWP.
+ * This will only be called immediately before a 'step'
+ * or 'continue,' and the HWP will be disabled as soon
+ * as the CPU returns control to the RSP server.
+ * Returns -1 if no HWP available.
+ */
+int hwp_get_available_watchpoint(void)
+{
+  int i;
+  int ret = -1;
+
+  for(i = 0; i < HWP_MAX_WP; i++)
+    {
+      if(hwp_in_use[i] == 0)
+	{
+	  ret = i;
+	  hwp_in_use[i] = 1;
+	  
+	  break;
+	}
+    }	  
+  debug("HWP granting wp %i to GDB/RSP\n", ret);
+  return ret;
+}
+
+/* Called by the RSP server to indicate it is no longer
+ * using a watchpoint previously granted by
+ * hwp_get_available_watchpoint()
+ */
+void hwp_return_watchpoint(int wp)
+{
+  if(wp >= HWP_MAX_WP)
+    {
+      fprintf(stderr, "ERROR! WP value %i out of range in hwp_return_watchpoint()!\n", wp);
+    }
+  else
+    {
+      if(hwp_in_use[wp] != 0)
+	{
+	  hwp_in_use[wp] = 0;
+	  debug("HWP got wp %i back from GDB/RSP\n", wp);
+	}
+      else
+	fprintf(stderr, "ERROR! hwp_return_watchpoint() returning wp %i, not in use!\n", wp);
+    }
+}

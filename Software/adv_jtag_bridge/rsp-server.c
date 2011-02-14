@@ -46,6 +46,7 @@ with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "dbg_api.h"
 #include "errcodes.h"
 #include "hardware_monitor.h"
+#include "hwp_server.h"
 
 /* Define to log each packet */
 #define RSP_TRACE  0
@@ -381,6 +382,7 @@ int handle_rsp (void)
   char monitor_status;
   uint32_t drrval;
   uint32_t ppcval;
+  int ret;
 
   /* Give up if no RSP server port (this should not occur) */
   if (-1 == rsp.server_fd)
@@ -481,7 +483,7 @@ int handle_rsp (void)
       else if(POLLIN == (fds[1].revents & POLLIN))
 	{
 	  //fprintf(stderr, "Got pipe event from monitor thread\n");
-	  read(pipe_fds[1], &monitor_status, 1);  // Read the monitor status
+	  ret = read(pipe_fds[1], &monitor_status, 1);  // Read the monitor status
 	  // *** TODO: Check return value of read()
 	  if(monitor_status == 'H')
 	    {
@@ -2267,6 +2269,22 @@ rsp_query (struct rsp_buf *buf)
       fprintf (stderr, "Warning: RSP 'qXfer' not supported: ignored\n");
       put_str_packet ("");
     }
+  else if (0 == strncmp ("qAttached", buf->data, strlen ("qAttached")))
+    {
+      /* GDB is inquiring whether it created a process or attached to an
+       * existing one. We don't support this feature.  Note this packet
+       * may have a ':' and a PID included. */
+      put_str_packet ("");
+    }
+  else if (0 == strcmp ("qTStatus", buf->data))
+    {
+      /* GDB is inquiring whether a trace is running.
+       * We don't support the trace feature, so respond with an
+       * empty packet.  Note that if we respond 'no' with a "T0"
+       * packet, GDB will send us further queries about tracepoints.
+       */
+      put_str_packet ("");
+    }
   else
     {
       fprintf (stderr, "Unrecognized RSP query: ignored\n");
@@ -2666,6 +2684,7 @@ rsp_remove_matchpoint (struct rsp_buf *buf)
   int                len;		/* Matchpoint length (not used) */
   struct mp_entry   *mpe;		/* Info about the replaced instr */
   uint32_t           instbuf[1];
+  uint32_t           hwp, regaddr, regdata; /* used to clear HWP bit */
 
   /* Break out the instruction */
   if (3 != sscanf (buf->data, "z%1d,%x,%1d", (int *)&type, &addr, &len))
@@ -2701,24 +2720,43 @@ rsp_remove_matchpoint (struct rsp_buf *buf)
 	}
 
       put_str_packet ("OK");
-
-      return;
+      break;;
      
     case BP_HARDWARE:
-      put_str_packet ("");		/* Not supported */
-      return;
-
     case WP_WRITE:
-      put_str_packet ("");		/* Not supported */
-      return;
-
     case WP_READ:
-      put_str_packet ("");		/* Not supported */
-      return;
-
     case WP_ACCESS:
-      put_str_packet ("");		/* Not supported */
-      return;
+      mpe = mp_hash_delete (type, addr);
+      /* The wp we used is stored in mpe->instr */
+      if(NULL != mpe)
+	{
+	  hwp = mpe->instr;
+	  free (mpe);
+	  /* Clear enable bit in DMR2 */
+	  regaddr = SPR_DMR2;
+	  dbg_cpu0_read(regaddr, &regdata);  // *** TODO Check return value
+	  regdata &= ~((0x1 << hwp) << 12);  /* Clear the correct WGB bit */
+	  dbg_cpu0_write(regaddr, regdata);  // *** TODO Check return value
+
+	  /* This isn't strictly necessary, but it makes things easier for HWP clients.  This way,
+	   * they can read regs and write them back with no changes, and the HWP server won't mark
+	   * this watchpoint as 'in use'.  Small performance hit. */
+	  regaddr = SPR_DCR(hwp);
+	  regdata = 0x01;  /* Disabled */
+	  dbg_cpu0_write(regaddr, regdata);
+
+	  hwp_return_watchpoint(hwp); /* mark the wp as unused again */
+	  put_str_packet ("OK");
+	}
+      else
+	{
+	  /* GDB has been observed to disable the same watchpoint twice, then give an error message
+	   * "conflicting enabled responses" after it tries to re-disable a watchpoint that no
+	   * longer exists.  So, if GDB tries to disable a HWP that doesn't exist, tell it it has
+	   * succeeded - it doesn't exist, so it's certainly disabled now. */
+	  put_str_packet ("OK");
+	}
+      break;
 
     default:
       fprintf (stderr, "Warning: RSP matchpoint type %d not "
@@ -2748,6 +2786,9 @@ rsp_insert_matchpoint (struct rsp_buf *buf)
   uint32_t           addr;		/* Address specified */
   int                len;		/* Matchpoint length (not used) */
   uint32_t           instbuf[1];
+  int                hwp;               /* Which hardware watchpoint we use */
+  uint32_t           regaddr;           /* Used to set HW watchpoints */
+  uint32_t           regdata;           /* ditto */
 
   /* Break out the instruction */
   if (3 != sscanf (buf->data, "Z%1d,%x,%1d", (int *)&type, &addr, &len))
@@ -2776,30 +2817,140 @@ rsp_insert_matchpoint (struct rsp_buf *buf)
       instbuf[0] = OR1K_TRAP_INSTR;  // Set the TRAP instruction
       dbg_wb_write_block32(addr, instbuf, 1);  // *** TODO Check return value
       put_str_packet ("OK");
-
-      return;
+      break;
      
     case BP_HARDWARE:
-      put_str_packet ("");		/* Not supported */
-      return;
+      //fprintf(stderr, "Setting BP_HARDWARE breakpoint\n");
+      hwp = hwp_get_available_watchpoint();
+      //fprintf(stderr, "Got wp %i from HWP\n", hwp);
+      if(hwp == -1) /* No HWP available */
+	{
+	  fprintf(stderr, "Warning: no hardware watchpoints available to satisfy GDB request for hardware breakpoint");
+	  put_str_packet ("");
+	}
+      else
+	{
+	  mp_hash_add(type, addr, hwp);  /* Use the HWP number instead of the instruction data */
+	  //fprintf(stderr, "Added MP hash\n");
+	  /* Set DVR */
+	  regaddr = SPR_DVR(hwp);
+	  dbg_cpu0_write(regaddr, addr);  // *** TODO Check return value
+	  /* Set DCR */
+	  regaddr = SPR_DCR(hwp);
+	  regdata = 0x23;  /* Compare to Instr fetch EA, unsigned, == */
+	  dbg_cpu0_write(regaddr, regdata);  // *** TODO Check return value
+	  /* Set enable bit in DMR2 */
+	  regaddr = SPR_DMR2;
+	  dbg_cpu0_read(regaddr, &regdata);  // *** TODO Check return value
+	  regdata |= (0x1 << hwp) << 12;  /* Set the correct WGB bit */
+	  dbg_cpu0_write(regaddr, regdata);  // *** TODO Check return value
+	  /* Clear chain in DMR1 */
+	  regaddr = SPR_DMR1;
+	  dbg_cpu0_read(regaddr, &regdata);  // *** TODO Check return value
+	  regdata &= ~(0x3 << (2*hwp));
+	  dbg_cpu0_write(regaddr, regdata);  // *** TODO Check return value
+	  put_str_packet("OK");
+	}
+      break;
 
     case WP_WRITE:
-      put_str_packet ("");		/* Not supported */
-      return;
+      hwp = hwp_get_available_watchpoint();
+      if(hwp == -1) /* No HWP available */
+	{	  	  
+	  fprintf(stderr, "Warning: no hardware watchpoints available to satisfy GDB request for write watchpoint");
+	  put_str_packet ("");
+	}
+      else
+	{
+	  mp_hash_add(type, addr, hwp);  /* Use the HWP number instead of the instruction data */
+	  /* Set DVR */
+	  regaddr = SPR_DVR(hwp);
+	  dbg_cpu0_write(regaddr, addr);
+	  /* Set DCR */
+	  regaddr = SPR_DCR(hwp);
+	  regdata = 0x63;  /* Compare to Store EA, unsigned, == */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Set enable bit in DMR2 */
+	  regaddr = SPR_DMR2;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata |= (0x1 << hwp) << 12;  /* Set the correct WGB bit */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Clear chain in DMR1 */
+	  regaddr = SPR_DMR1;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata &= ~(0x3 << (2*hwp));
+	  dbg_cpu0_write(regaddr, regdata);
+	  put_str_packet("OK");
+	}
+      break;
 
     case WP_READ:
-      put_str_packet ("");		/* Not supported */
-      return;
+      hwp = hwp_get_available_watchpoint();
+      if(hwp == -1) /* No HWP available */
+	{	  	  
+	  fprintf(stderr, "Warning: no hardware watchpoints available to satisfy GDB request for read watchpoint");
+	  put_str_packet ("");
+	}
+      else
+	{
+	  mp_hash_add(type, addr, hwp);  /* Use the HWP number instead of the instruction data */
+	  /* Set DVR */
+	  regaddr = SPR_DVR(hwp);
+	  dbg_cpu0_write(regaddr, addr);
+	  /* Set DCR */
+	  regaddr = SPR_DCR(hwp);
+	  regdata = 0x43;  /* Compare to Load EA, unsigned, == */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Set enable bit in DMR2 */
+	  regaddr = SPR_DMR2;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata |= (0x1 << hwp) << 12;  /* Set the correct WGB bit */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Clear chain in DMR1 */
+	  regaddr = SPR_DMR1;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata &= ~(0x3 << (2*hwp));
+	  dbg_cpu0_write(regaddr, regdata);
+	  put_str_packet("OK");
+	}
+      break;
 
     case WP_ACCESS:
-      put_str_packet ("");		/* Not supported */
-      return;
+       hwp = hwp_get_available_watchpoint();
+      if(hwp == -1) /* No HWP available */
+	{	   
+	  fprintf(stderr, "Warning: no hardware watchpoints available to satisfy GDB request for access watchpoint");
+	  put_str_packet ("");
+	}
+      else
+	{
+	  mp_hash_add(type, addr, hwp);  /* Use the HWP number instead of the instruction data */
+	  /* Set DVR */
+	  regaddr = SPR_DVR(hwp);
+	  dbg_cpu0_write(regaddr, addr);
+	  /* Set DCR */
+	  regaddr = SPR_DCR(hwp);
+	  regdata = 0xC3;  /* Compare to Load or Store EA, unsigned, == */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Set enable bit in DMR2 */
+	  regaddr = SPR_DMR2;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata |= (0x1 << hwp) << 12;  /* Set the correct WGB bit */
+	  dbg_cpu0_write(regaddr, regdata);
+	  /* Clear chain in DMR1 */
+	  regaddr = SPR_DMR1;
+	  dbg_cpu0_read(regaddr, &regdata);
+	  regdata &= ~(0x3 << (2*hwp));
+	  dbg_cpu0_write(regaddr, regdata);
+	  put_str_packet("OK");
+	}
+      break;
 
     default:
       fprintf (stderr, "Warning: RSP matchpoint type %d not "
 	       "recognized: ignored\n", type);
       put_str_packet ("E01");
-      return;
+      break;
 
     }
 

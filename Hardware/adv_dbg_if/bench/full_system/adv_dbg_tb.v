@@ -6,13 +6,13 @@
 ////  Testbench for the SoC Advanced Debug Interface.             ////
 ////                                                              ////
 ////  Author(s):                                                  ////
-////       Nathan Yawn (nathan.yawn@opencores.org)                ////
+////       Nathan Yawn (nyawn@opencores.org)                      ////
 ////                                                              ////
 ////                                                              ////
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2008        Authors                            ////
+//// Copyright (C) 2008'2010        Authors                       ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +40,9 @@
 // CVS Revision History
 //
 // $Log: adv_dbg_tb.v,v $
+// Revision 1.7  2011-02-14 04:16:25  natey
+// Major functionality enhancement - now duplicates the full OR1K self-test performed by adv_jtag_bridge.
+//
 // Revision 1.6  2010-01-16 02:15:22  Nathan
 // Updated to match changes in hardware.  Added support for hi-speed mode.
 //
@@ -120,6 +123,8 @@ reg [15:0] input_data16 [0:15];
 reg [7:0]  input_data8 [0:15];                                
 
 reg [32:0] err_data;  // holds the contents of the error register from the various modules
+
+reg [31:0] original_instruction; // holds instruction being replaced by TRAP in CPU functional test
 
 reg failed;
 integer i;
@@ -269,9 +274,11 @@ begin
 `endif  // WB module supported
   
   
-  ///////////////////////////////////////////////////////////////////
-  // Test CPU0 unit
-  ////////////////////////////////////////////////////////////////////
+   ///////////////////////////////////////////////////////////////////
+   // Test CPU0 unit. This duplicates the CPU self-test originally
+   // found in the jp2 JTAG proxy (which was carried over into
+   // adv_jtag_bridge)  
+   ////////////////////////////////////////////////////////////////////
 `ifdef DBG_CPU0_SUPPORTED
   // Select the CPU0 unit in the debug module
   #1000; 
@@ -291,125 +298,240 @@ begin
    #1000;
    
 
-// Write some opcodes into the memory
-select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
-
-static_data32[0] = 32'hE0000005;/* l.xor   r0,r0,r0   */
-static_data32[1] = 32'h9C200000; /* l.addi  r1,r0,0x0  */
-static_data32[2] = 32'h18400000;/* l.movhi r2,0x4000  */
-static_data32[3] = 32'hA8420030;/* l.ori   r2,r2,0x30 */
-static_data32[4] = 32'h9C210001;/* l.addi  r1,r1,1    */
-static_data32[5] = 32'h9C210001; /* l.addi  r1,r1,1    */
-static_data32[6] = 32'hD4020800;/* l.sw    0(r2),r1   */
-static_data32[7] = 32'h9C210001;/* l.addi  r1,r1,1    */
-static_data32[8] = 32'h84620000;/* l.lwz   r3,0(r2)   */
-static_data32[9] = 32'h03FFFFFB;/* l.j     loop2      */
-static_data32[10] = 32'hE0211800;/* l.add   r1,r1,r3   */
-
-do_module_burst_write(3'h4, 16'd11, 32'h0);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
+   // Write some opcodes into the memory
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   $display("Commencing CPU functional test - writing instructions at time %t", $time);
+   static_data32[0] = 32'hE0000005;/* l.xor   r0,r0,r0   */
+   static_data32[1] = 32'h9C200000; /* l.addi  r1,r0,0x0  */
+   static_data32[2] = 32'h18400000;/* l.movhi r2,0x4000  */
+   static_data32[3] = 32'hA8420030;/* l.ori   r2,r2,0x30 */
+   static_data32[4] = 32'h9C210001;/* l.addi  r1,r1,1    */
+   static_data32[5] = 32'h9C210001; /* l.addi  r1,r1,1    */
+   static_data32[6] = 32'hD4020800;/* l.sw    0(r2),r1   */
+   static_data32[7] = 32'h9C210001;/* l.addi  r1,r1,1    */
+   static_data32[8] = 32'h84620000;/* l.lwz   r3,0(r2)   */
+   static_data32[9] = 32'h03FFFFFB;/* l.j     loop2      */
+   static_data32[10] = 32'hE0211800;/* l.add   r1,r1,r3   */
+   do_module_burst_write(3'h4, 16'd11, 32'h0);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
 
    #1000;
-select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
 
-#1000;
-$display("Enabling CPU exceptions at time %t", $time);
-static_data32[0] = 32'h1;  // enable exceptions
-do_module_burst_write(3'h4, 16'd1, 32'd17);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
-
-#1000;
-$display("Set \'trap causes stall\' at time %t", $time);
-static_data32[0] = 32'h00002000;  // Trap causes stall
-do_module_burst_write(3'h4, 16'd1, (6 << 11)+20);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
-
-#1000;
-$display("Set PC at time %t", $time);
-static_data32[0] = 32'h0;  // Set PC
-do_module_burst_write(3'h4, 16'd1, 32'd16);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
-
-#1000;
-$display("Set step bit at time %t", $time);
-static_data32[0] = (1 << 22);  // set step bit
-do_module_burst_write(3'h4, 16'd1, (6<<11) + 16);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
-
-// Unstall x11
-for(i = 0; i < 11; i = i + 1)
-begin
+   // *** Test the step bit ***
    #1000;
-   $display("Unstall (%d/11) at time %t", i, $time);   
-   write_module_internal_register(32'h0, 8'h1, 32'h0, 8'h2);  // idx, idxlen, data, datalen
-end
+   $display("Testing step bit at time %t", $time);
+   static_data32[0] = 32'h1;  // enable exceptions
+   do_module_burst_write(3'h4, 16'd1, 32'd17);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
+   static_data32[0] = 32'h00002000;  // Trap causes stall
+   do_module_burst_write(3'h4, 16'd1, (6 << 11)+20);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
+   static_data32[0] = 32'h0;  // Set PC to 0x00
+   do_module_burst_write(3'h4, 16'd1, 32'd16);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
+   static_data32[0] = (1 << 22);  // set step bit
+   do_module_burst_write(3'h4, 16'd1, (6<<11) + 16);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
 
-#1000;
-#1000;
-#1000;
+   // Unstall x11
+   for(i = 0; i < 11; i = i + 1)
+     begin
+	#1000;
+	$display("Unstall (%d/11) at time %t", i+1, $time);
+	unstall();
+	wait_for_stall();
+     end
 
-  $display("Getting NPC at time %t", $time);
-  do_module_burst_read(3'h4, 16'd1, 32'd16);
+   #1000;
+   check_results(32'h10, 32'h28, 32'h5);
   
-  $display("NPC = %x, expected 0x00000010", input_data32[0]);
+   static_data32[0] = 32'h0;
+   do_module_burst_write(3'h4, 16'd1, (6 << 11)+16);  // Un-set step bit
   
-    $display("Getting PPC at time %t", $time);
-  do_module_burst_read(3'h4, 16'd1, 32'd18);
-  $display("PPC = %x, expected 0x00000028", input_data32[0]);
-  
-  #1000;
-  $display("Getting R1 at time %t", $time);
-  do_module_burst_read(3'h4, 16'd1, 32'h401);  // Word size, count, addr; save old instr
-  $display("R1 = %d, expected 5", input_data32[0]);
-  
-  #1000;
-$display("Un-set step bit at %t", $time);
-static_data32[0] = 32'h0;  // Trap causes stall
-do_module_burst_write(3'h4, 16'd1, (6 << 11)+16); 
-  
-// Put a trap instr at 0x20
-#1000;
-$display("Select WB at %t", $time);  
-select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
-#1000;
-$display("Save old instr at %t", $time);  
-do_module_burst_read(3'h4, 16'd1, 32'h20);  // Save old instr
-#1000;
-$display("Put trap instr at %t", $time);  
-static_data32[0] = 32'h21000001;  /* l.trap   */
-do_module_burst_write(3'h4, 16'd1, 32'h20); // put new instr
-#1000;
-$display("Select CPU0 at %t", $time);  
-select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
-#1000;
-$display("Set PC to 0x24 at %t", $time);  
-static_data32[0] = 32'h24;  
-do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x24
-#1000;
-$display("Unstall  at time %t", $time);   
-write_module_internal_register(32'h0, 8'h1, 32'h0, 8'h2);  // idx, idxlen, data, datalen
+   // *** Put a TRAP instruction in the delay slot ***
+   #1000;  
+   $display("Put TRAP instruction in the delay slot at time %t", $time);  
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_read(3'h4, 16'd1, 32'h28);  // Save old instr in input_data32[0]
+  original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h28); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   // We don't set the PC here
 
-// We assume it stalls again here...
-#1000;
+   unstall();
+   wait_for_stall();
+   check_results(32'h10, 32'h28, 32'd8);  // Expected NPC, PPC, R1
+   
+   // Put back original instruction
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h28); // put back old instr
 
-err_data = 1;
-while(err_data != 0)
-begin
-    $display("Testing for stall at %t", $time);
-    read_module_internal_register(8'd2, err_data);  // We assume the register is already selected
-    #1000;    
-end
+   // *** Put TRAP instruction in place of BRANCH instruction ***
+   #1000;
+   $display("Put TRAP instruction in place of BRANCH instruction at time %t", $time);  
+   do_module_burst_read(3'h4, 16'd1, 32'h24);  // Save old instr in input_data32[0]
+   original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h24); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   static_data32[0] = 32'h10;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x10
+   
+   unstall();
+   wait_for_stall();
+   check_results(32'h28, 32'h24, 32'd11);  // Expected NPC, PPC, R1
+   
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h24); // put back old instr
 
+   // *** Set TRAP instruction before BRANCH instruction ***
+   #1000;
+   $display("Put TRAP instruction before BRANCH instruction at time %t", $time);  
+   do_module_burst_read(3'h4, 16'd1, 32'h20);  // Save old instr in input_data32[0]
+   original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h20); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   static_data32[0] = 32'h24;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x24
+   
+   unstall();
+   wait_for_stall();
+   check_results(32'h24, 32'h20, 32'd24);  // Expected NPC, PPC, R1
+   
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h20); // put back old instr
 
-// *** The software self-test does 2 separate reads here...
-  $display("Getting NPC at time %t", $time);
-  do_module_burst_read(3'h4, 16'd3, 32'd16);
-  
-  $display("NPC = %x, expected 0x00000024", input_data32[0]);
-  $display("PPC = %x, expected 0x00000020", input_data32[2]);
+   // *** Set TRAP instruction behind LSU instruction ***
+   #1000;
+   $display("Put TRAP instruction behind LSU instruction at time %t", $time);  
+   do_module_burst_read(3'h4, 16'd1, 32'h1c);  // Save old instr in input_data32[0]
+   original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h1c); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   static_data32[0] = 32'h20;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x20
+   
+   unstall();
+   wait_for_stall();
+   check_results(32'h20, 32'h1c, 32'd49);  // Expected NPC, PPC, R1
+   
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h1c); // put back old instr
 
+   // *** Set TRAP instruction very near previous one ***
+   #1000;
+   $display("Put TRAP instruction very near previous one at time %t", $time);  
+   do_module_burst_read(3'h4, 16'd1, 32'h20);  // Save old instr in input_data32[0]
+   original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h20); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   static_data32[0] = 32'h1c;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x1c
+   
+   unstall();
+   wait_for_stall();
+   check_results(32'h24, 32'h20, 32'd50);  // Expected NPC, PPC, R1
+   
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h20); // put back old instr
 
+   // *** Set TRAP instruction at the start ***
+   #1000;
+   $display("Put TRAP at the start at time %t", $time);  
+   do_module_burst_read(3'h4, 16'd1, 32'h10);  // Save old instr in input_data32[0]
+   original_instruction = input_data32[0];
+   static_data32[0] = 32'h21000001;  /* l.trap   */
+   do_module_burst_write(3'h4, 16'd1, 32'h10); // put new instr
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   static_data32[0] = 32'h20;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x20
+   
+   unstall();
+   wait_for_stall();
+   check_results(32'h14, 32'h10, 32'd99);  // Expected NPC, PPC, R1
+   
+   static_data32[0] = original_instruction;
+   select_debug_module(`DBG_TOP_WISHBONE_DEBUG_MODULE);
+   do_module_burst_write(3'h4, 16'd1, 32'h10); // put back old instr
 
+   // *** Test the STEP bit some more ***
+   #1000;   
+   select_debug_module(`DBG_TOP_CPU0_DEBUG_MODULE);
+   $display("Set step bit at time %t", $time);
+   static_data32[0] = (1 << 22);  // set step bit
+   do_module_burst_write(3'h4, 16'd1, (6<<11) + 16);  // 3-bit word size (bytes), 16-bit word count, 32-bit start address
+
+   // Unstall x5
+   for(i = 0; i < 5; i = i + 1)
+     begin
+	#1000;
+	$display("Unstall (%d/5) at time %t", i, $time);
+	unstall();
+	wait_for_stall();
+     end
+
+   check_results(32'h28, 32'h24, 32'd101);  // Expected NPC, PPC, R1
+
+   static_data32[0] = 32'h24;  
+   do_module_burst_write(3'h4, 16'd1, 32'd16); // Set PC to 0x24
+   
+      // Unstall x2
+   for(i = 0; i < 2; i = i + 1)
+     begin
+	#1000;
+	$display("Unstall (%d/2) at time %t", i, $time);
+	unstall();
+	wait_for_stall();
+     end
+   
+  check_results(32'h10, 32'h28, 32'd201);  // Expected NPC, PPC, R1
+   
 `endif
 
-  
 end
 
+task check_results;      
+      input [31:0] expected_npc;
+      input [31:0] expected_ppc;
+      input [31:0] expected_r1;
+      begin
+	 //$display("Getting NPC at time %t", $time);
+	 do_module_burst_read(3'h4, 16'd3, 32'd16);// The software self-test does 2 separate reads here
+  
+	 $display("NPC = %x, expected %x", input_data32[0], expected_npc);
+	 $display("PPC = %x, expected %x", input_data32[2], expected_ppc);
+
+	 //$display("Getting R1 at time %t", $time);
+	 do_module_burst_read(3'h4, 16'd1, 32'h401);  // Word size, count, addr
+	 $display("R1 = %x, expected %x", input_data32[0], expected_r1);
+      end
+endtask
+
+task unstall;      
+  begin
+     //$display("Unstall  at time %t", $time);
+     write_module_internal_register(32'h0, 8'h1, 32'h0, 8'h2);  // idx, idxlen, data, datalen
+  end
+endtask
+   
+task wait_for_stall;
+  reg[31:0] regstate;
+  begin
+     regstate = 0;
+     while(regstate == 0)
+       begin
+	       //$display("Testing for stall at %t", $time);
+	       read_module_internal_register(8'd2, regstate);  // We assume the register is already selected
+	       #1000;    
+       end
+  end
+endtask
+   
 task initialize_memory;
   input [31:0] start_addr;
   input [31:0] length;
@@ -482,7 +604,7 @@ begin
     write_bit(`JTAG_TMS_bit);  // update_dr
     write_bit(3'h0);           // idle
     
-    $display("Selecting module (%0x)", moduleid);
+    //$display("Selecting module (%0x)", moduleid);
     
     // Read back the status to make sure a valid chain is selected
     /* Pointless, the newly selected module would respond instead...
@@ -592,7 +714,7 @@ reg [31:0] crc_calc_o;  // temp signal...
 reg [31:0] crc_read;
 reg [5:0] word_size_bits;
 begin
-    $display("Doing burst read, word size %d, word count %d, start address 0x%x", word_size_bytes, word_count, start_address);
+    //$display("Doing burst read, word size %d, word count %d, start address 0x%x", word_size_bytes, word_count, start_address);
     instream = 64'h0;
     word_size_bits = word_size_bytes << 3;
     crc_calc_i = 32'hffffffff;
@@ -634,9 +756,9 @@ begin
          j = j + 1;
       end
       
-      if(j > 1) begin
-         $display("Took %0d tries before good status bit during burst read", j);
-      end
+      //if(j > 1) begin
+      //   $display("Took %0d tries before good status bit during burst read", j);
+      //end
 `endif   
    
    // Now, repeat...
@@ -651,9 +773,9 @@ begin
          j = j + 1;
       end
       
-      if(j > 1) begin
-         $display("Took %0d tries before good status bit during burst read", j);
-      end
+      //if(j > 1) begin
+      //   $display("Took %0d tries before good status bit during burst read", j);
+      //end
 `endif
   
      jtag_read_write_stream(64'h0, {2'h0,(word_size_bytes<<3)},0,instream);
@@ -668,7 +790,7 @@ begin
    // Read the data CRC from the debug module.
    jtag_read_write_stream(64'h0, 6'd32, 1, crc_read);
    if(crc_calc_o != crc_read) $display("CRC ERROR! Computed 0x%x, read CRC 0x%x", crc_calc_o, crc_read);
-   else $display("CRC OK!");
+   //else $display("CRC OK!");
     
    // Finally, shift out 5 0's, to make the next command a NOP
    // Not necessary, debug unit won't latch a new opcode at the end of a burst
@@ -693,7 +815,7 @@ reg [31:0] crc_calc_o;
 reg crc_match;
 reg [5:0] word_size_bits;
 begin
-    $display("Doing burst write, word size %d, word count %d, start address 0x%x", word_size_bytes, word_count, start_address);
+    //$display("Doing burst write, word size %d, word count %d, start address 0x%x", word_size_bytes, word_count, start_address);
     word_size_bits = word_size_bytes << 3;
     crc_calc_i = 32'hffffffff;
     
@@ -752,7 +874,7 @@ begin
    // Read the 'CRC match' bit, and go to exit1_dr
    read_write_bit(`JTAG_TMS_bit, crc_match);
    if(!crc_match) $display("CRC ERROR! match bit after write is %d (computed CRC 0x%x)", crc_match, crc_calc_o);
-   else $display("CRC OK!");
+   //else $display("CRC OK!");
     
    // Finally, shift out 5 0's, to make the next command a NOP
    // Not necessary, module will not latch new opcode during burst
@@ -913,4 +1035,6 @@ task jtag_inout;
    end
 endtask
 
-endmodule
+endmodule // adv_debug_tb
+
+
