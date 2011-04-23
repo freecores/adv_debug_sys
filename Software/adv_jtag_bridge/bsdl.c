@@ -217,8 +217,8 @@ bsdlinfo *get_bsdl_info(uint32_t idcode)
       if(direntry == NULL)  // We need a new directory
 	continue;
 
-      // Make sure we can hold the full path
-      if((strlen(direntry->d_name) + strlen(bsdl_dirs[bsdl_current_dir+1])+1) >= bsdl_scratchpad_size)
+      // Make sure we can hold the full path (+2 for a '/' and the trailing NULL)
+      if((strlen(direntry->d_name) + strlen(bsdl_dirs[bsdl_current_dir+1])+2) >= bsdl_scratchpad_size)
 	{
 	  char *tmp = (char *) realloc(bsdl_scratchpad, (bsdl_scratchpad_size*2));
 	  if(tmp != NULL)

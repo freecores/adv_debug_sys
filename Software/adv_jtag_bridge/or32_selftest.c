@@ -408,7 +408,7 @@ int test_or1k_cpu0(void)
   printf("Testing CPU0 (or1k) - writing instructions\n");
   CHECK(dbg_wb_write32(SDRAM_BASE+0x00, 0xe0000005));   /* l.xor   r0,r0,r0   */
   CHECK(dbg_wb_write32(SDRAM_BASE+0x04, 0x9c200000));   /* l.addi  r1,r0,0x0  */
-  CHECK(dbg_wb_write32(SDRAM_BASE+0x08, 0x18400000));   /* l.movhi r2,0x4000  */
+  CHECK(dbg_wb_write32(SDRAM_BASE+0x08, 0x18400000));   /* l.movhi r2,0x0000  */
   CHECK(dbg_wb_write32(SDRAM_BASE+0x0c, 0xa8420030));   /* l.ori   r2,r2,0x30 */
   CHECK(dbg_wb_write32(SDRAM_BASE+0x10, 0x9c210001));   /* l.addi  r1,r1,1    */
   CHECK(dbg_wb_write32(SDRAM_BASE+0x14, 0x9c210001));   /* l.addi  r1,r1,1    */

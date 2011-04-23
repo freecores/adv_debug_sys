@@ -343,7 +343,7 @@ void parse_args(int argc, char **argv)
     case 'l':
       get_ir_opts(optarg, &idx, &val);        // parse the option
       if(num_ir_sets >= (IR_START_SETS<<reallocs)) {
-	cmd_line_ir_sizes = (irset *) realloc(cmd_line_ir_sizes, (IR_START_SETS<<reallocs)*sizeof(irset));
+	cmd_line_ir_sizes = (irset *) realloc(cmd_line_ir_sizes, (IR_START_SETS<<(++reallocs))*sizeof(irset));
 	if(cmd_line_ir_sizes == NULL) {
 	  printf("Error: out of memory while parsing command line.  Aborting.\n");
 	  exit(1);

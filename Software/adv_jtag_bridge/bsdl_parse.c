@@ -103,9 +103,11 @@ bsdlinfo *parse_extract_values(char *bsdlfilename)
 	// Parse an entity line
 	token = strtok_r(NULL, " \t", &last);
 	if(token != NULL) {
-	  entityname = (char *) malloc(strlen(token));
-	  if(entityname != NULL) strcpy(entityname, token);
-	  debug("Found entity \'%s\'\n", entityname);
+	  entityname = strdup(token);
+	  if(entityname != NULL) 
+	    {
+	      debug("Found entity \'%s\'\n", entityname);
+	    }
 	} else {
 	  printf("Parse error near ENTITY token in file %s\n", bsdlfilename);
 	}
@@ -231,6 +233,8 @@ bsdlinfo *parse_extract_values(char *bsdlfilename)
 	  // and we can't just scan for ';' to find out because there's a '\0' at the end of this line.
 	  // But, it can't be bigger than the entire rest of the file, so...
 	  cmdbuf = (char *) malloc(filesize-filepos);
+	  debug("Malloc'd %i bytes for INSTRUCTION_OPCODE\n", filesize-filepos);
+
 	  // Parse until ';', and grab everything between each pair of "" found
 	  // Note that 'last' still points at "is"
 	  j = 0;
@@ -253,6 +257,7 @@ bsdlinfo *parse_extract_values(char *bsdlfilename)
 	    }
 	  }
 	  cmdbuf[j] = '\0';
+	  debug("Finished copying INSTRUCTION_OPCODE, copied %i bytes", j+1);
 
 	  // Parse the opcodes attribute.  This is an exercise unto itself, so do it in another function.
 	  parse_opcodes(cmdbuf, &debug_cmd, &user1_cmd, &idcode_cmd);
