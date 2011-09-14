@@ -41,16 +41,18 @@ jtag_cable_t usbblaster_cable_driver = {
     .stream_out_func =  cable_usbblaster_write_stream,
     .stream_inout_func = cable_usbblaster_read_stream,
     .flush_func = NULL,
-    .opts = "",
-    .help = "no options\n",
+    .opts = "p:v:",
+    .help = "-p [PID] Alteranate PID for USB device (hex value)\n\t-v [VID] Alternate VID for USB device (hex value)\n",
     };
 
 // USB constants for the USB Blaster
 // Valid endpoints: 0x81, 0x02, 0x06, 0x88
 #define EP2        0x02
 #define EP1        0x81
-#define ALTERA_VID 0x09FB
-#define ALTERA_PID 0x6001
+
+// These are the Altera defaults, but can be changed on the command line
+static uint32_t ALTERA_VID = 0x09FB;
+static uint32_t ALTERA_PID = 0x6001;
 
 //#define USB_TIMEOUT 500
 #define USB_TIMEOUT 10000
@@ -147,7 +149,7 @@ static int usbblaster_enumerate_bus(void)
       break;
   }
 
-  fprintf(stderr, "Failed to find USB-Blaster\n");
+  fprintf(stderr, "Failed to find USB-Blaster  with VID 0x%0X, PID 0x%0X\n", ALTERA_VID, ALTERA_PID);
   return APP_ERR_CABLENOTFOUND;
 }
 
@@ -510,8 +512,35 @@ jtag_cable_t *cable_usbblaster_get_driver(void)
 
 int cable_usbblaster_opt(int c, char *str)
 {
-  fprintf(stderr, "Unknown parameter '%c'\n", c);
-  return APP_ERR_BAD_PARAM;
+  uint32_t newvid;
+  uint32_t newpid;
+
+  switch(c) {
+  case 'p':
+    if(!sscanf(str, "%x", &newpid)) {
+      fprintf(stderr, "p parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      ALTERA_PID = newpid;
+    }
+    break;
+
+  case 'v':
+    if(!sscanf(str, "%x", &newvid)) {
+      fprintf(stderr, "v parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      ALTERA_VID = newvid;
+    }
+    break;
+
+  default:
+    fprintf(stderr, "Unknown parameter '%c'\n", c);
+    return APP_ERR_BAD_PARAM;
+  }
+  return APP_ERR_NONE;
 }
 
 

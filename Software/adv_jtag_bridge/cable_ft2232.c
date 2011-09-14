@@ -44,8 +44,8 @@ jtag_cable_t ft2232_cable_driver = {
     .stream_out_func = cable_ftdi_write_stream,
     .stream_inout_func = cable_ftdi_read_stream,
     .flush_func = cable_ftdi_flush,
-    .opts = "",
-    .help = "no options\n",
+    .opts = "p:v:",
+    .help = "-p [PID] Alteranate PID for USB device (hex value)\n\t-v [VID] Alternate VID for USB device (hex value)\n",
 };
 
 usbconn_t * usbconn_ftdi_connect();
@@ -216,7 +216,7 @@ static int usbconn_ftdi_common_open(usbconn_t *conn) {
 	if ((error = my_ftdi_usb_open_desc(ftdic, conn->cable->vid, conn->cable->pid, NULL, NULL))) {
 		if      (error == -1) printf("usb_find_busses() failed\n");
 		else if (error == -2) printf("usb_find_devices() failed\n");
-		else if (error == -3) printf("usb device not found\n");
+		else if (error == -3) printf("usb device not found with VID 0x%0X, PID 0x%0X\n", conn->cable->vid, conn->cable->pid);
 		else if (error == -4) printf("unable to open device\n");
 		else if (error == -5) printf("unable to claim device\n");
 		else if (error == -6) printf("reset failed\n");
@@ -822,9 +822,9 @@ int cable_ftdi_init() {
 	ftdi_param_t *params = ft2232_device->params;
 	//struct ftdi_context * ftdic = params->ftdic;
 
-	buf[0]= SET_BITS_LOW;
-	buf[1]= 0x00;
-	buf[2]= 0x0b;
+	buf[0]= SET_BITS_LOW;  // Set value & direction of ADBUS lines
+	buf[1]= 0x00;          // values
+	buf[2]= 0x1b;          // direction (1 == output)
 	buf[3]= TCK_DIVISOR;
 	buf[4]= 0x01;
 	buf[5]= 0x00;
@@ -913,8 +913,35 @@ int cable_ftdi_read_stream(uint32_t *outstream, uint32_t *instream, int len_bits
 }
 
 int cable_ftdi_opt(int c, char *str) {
-	fprintf(stderr, "Unknown parameter '%c'\n", c);
-	return APP_ERR_BAD_PARAM;
+  uint32_t newvid;
+  uint32_t newpid;
+
+  switch(c) {
+  case 'p':
+    if(!sscanf(str, "%x", &newpid)) {
+      fprintf(stderr, "p parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      usbconn_ft2232_mpsse_CableID2.pid = newpid;
+    }
+    break;
+
+  case 'v':
+    if(!sscanf(str, "%x", &newvid)) {
+      fprintf(stderr, "v parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      usbconn_ft2232_mpsse_CableID2.vid = newvid;
+    }
+    break;
+
+  default:
+    fprintf(stderr, "Unknown parameter '%c'\n", c);
+    return APP_ERR_BAD_PARAM;
+  }
+  return APP_ERR_NONE;
 }
 
 /// ----------------------------------------------------------------------------------------------

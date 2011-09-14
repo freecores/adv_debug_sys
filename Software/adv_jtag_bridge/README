@@ -27,12 +27,10 @@ intend to use FT2232-based JTAG cables, and don't want to bother with
 libftdi.
 
 Some users have reported problems getting their USB-Blaster cables to
-work using the standard driver.  An alternate, libftdi-based driver
-has been added as a compile-time option.  Set
-USE_ALT_FTDI_USBBLASTER_DRIVER true to try the alternate driver; note
-the two different drivers are mutually exclusive. Also note that the
-alternate libftdi-based driver is not a high-performance driver, and
-should not be used unless necessary.
+work using the standard driver. In this case, try the "ft245" driver,
+as this appears to work for these users. The "ft245" driver supports
+all of the same high-speed transfers that the "usbblaster" driver
+supports. 
 
 In release 2.0 and later, the adv_dbg_if core includes a "hi-speed"
 mode, which is used by default.  This requires a protocol change,
@@ -95,7 +93,11 @@ v0.1, so cygwin users may not need to install any additional compatibility
 layer.
 
 The libftdi library is optional, and only required if you are building
-support for FT2232-based cables (SUPPORT_FTDI_CABLES is true).
+support for FT2232-based cables (SUPPORT_FTDI_CABLES is true). Note that
+if you are installing libftdi using the software downloader / installer
+that came with your OS, you may need to get two packages, "libftdi" and
+"libftdi-dev." This is true for Ubuntu 10.04, and possibly other 
+distributions as well.
 
 BUGS
 

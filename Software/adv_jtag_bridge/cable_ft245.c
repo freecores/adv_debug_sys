@@ -50,8 +50,8 @@ jtag_cable_t ft245_cable_driver = {
     .stream_inout_func = cable_common_read_stream,
 #endif
     .flush_func = NULL,
-    .opts = "",
-    .help = "no options\n",
+    .opts = "p:v:",
+    .help = "-p [PID] Alteranate PID for USB device (hex value)\n\t-v [VID] Alternate VID for USB device (hex value)\n",
 };
 
 // USBBlaster has a max. single transaction of 63 bytes.  We assume
@@ -62,9 +62,10 @@ static uint8_t data_out_scratchpad[USBBLASTER_MAX_WRITE+1];
 #define USBBLASTER_MAX_READ  62
 static uint8_t data_in_scratchpad[USBBLASTER_MAX_READ+2];
 
-// USB constants for the USB Blaster
-#define ALTERA_VID 0x09FB
-#define ALTERA_PID 0x6001
+// USB constants for the USB Blaster, can be changed on the command line
+static uint32_t ALTERA_VID = 0X09FB;
+static uint32_t ALTERA_PID = 0x6001;
+
 
 static struct ftdi_context ftdic;
 
@@ -442,7 +443,7 @@ int cable_ft245_init(void)
 
 	/* context, vendor id, product id */
 	if (ftdi_usb_open(&ftdic, ALTERA_VID, ALTERA_PID) < 0) {
-		printf("unable to open ftdi device: %s\n", ftdic.error_str);
+		printf("unable to open ftdi device with VID 0x%0X, PID 0x%0X: %s\n", ALTERA_VID, ALTERA_PID, ftdic.error_str);
 		return -1;
 	}
 
@@ -478,8 +479,35 @@ jtag_cable_t *cable_ft245_get_driver(void)
 
 int cable_ft245_opt(int c, char *str)
 {
-  fprintf(stderr, "Unknown parameter '%c'\n", c);
-  return APP_ERR_BAD_PARAM;
+  uint32_t newvid;
+  uint32_t newpid;
+
+  switch(c) {
+  case 'p':
+    if(!sscanf(str, "%x", &newpid)) {
+      fprintf(stderr, "p parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      ALTERA_PID = newpid;
+    }
+    break;
+
+  case 'v':
+    if(!sscanf(str, "%x", &newvid)) {
+      fprintf(stderr, "v parameter must have a hex number as parameter\n");
+      return APP_ERR_BAD_PARAM;
+    }
+    else {
+      ALTERA_VID = newvid;
+    }
+    break;
+
+  default:
+    fprintf(stderr, "Unknown parameter '%c'\n", c);
+    return APP_ERR_BAD_PARAM;
+  }
+  return APP_ERR_NONE;
 }
 
 
