@@ -13,6 +13,10 @@ jtag_cable_t *cable_xpc3_get_driver(void);
 int cable_xpc3_inout(uint8_t value, uint8_t *inval);
 int cable_xpc3_out(uint8_t value);
 
+jtag_cable_t *cable_bb2_get_driver(void);
+int cable_bb2_inout(uint8_t value, uint8_t *inval);
+int cable_bb2_out(uint8_t value);
+
 jtag_cable_t *cable_xess_get_driver(void);
 int cable_xess_inout(uint8_t value, uint8_t *inval);
 int cable_xess_out(uint8_t value);

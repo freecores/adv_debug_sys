@@ -1,5 +1,5 @@
 /* dbg_api.c -- JTAG protocol bridge between GDB and Advanced debug module.
-   Copyright(C) 2009 - 2010 Nathan Yawn, nyawn@opencores.net
+   Copyright(C) 2009 - 2011 Nathan Yawn, nyawn@opencores.net
    based on code from jp2 by Marko Mlinar, markom@opencores.org
    
    This file contains API functions which may be called from the GDB
@@ -38,10 +38,8 @@
 #define DBG_HW_ADVANCED 1
 #define DBG_HW_LEGACY   2
 #ifdef __LEGACY__
-#warning Compiling for LEGACY debug hardware!
 #define DEBUG_HARDWARE DBG_HW_LEGACY
 #else
-#warning Compiling for ADVANCED debug unit!
 #define DEBUG_HARDWARE  DBG_HW_ADVANCED
 #endif
 

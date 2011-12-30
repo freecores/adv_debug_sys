@@ -281,7 +281,7 @@ void print_usage(char *func)
 #else
   printf("Support for the JTAG serial port is NOT compiled in.\n");
 #endif
-  printf("Copyright (C) 2010 Nathan Yawn, nathan.yawn@opencores.org\n\n");
+  printf("Copyright (C) 2011 Nathan Yawn, nathan.yawn@opencores.org\n\n");
   printf("Usage: %s (options) [cable] (cable options)\n", func);
   printf("Options:\n");
   printf("\t-g [port]     : port number for GDB (default: %s)\n", default_port);
@@ -515,8 +515,11 @@ int main(int argc,  char *argv[]) {
     }
   }
 
-  hwp_init(hwpserverport);
-  hwp_server_start();
+  if(hwp_init(hwpserverport))
+    {
+      // Only start the server if the init succeeded
+      hwp_server_start();
+    }
 
   printf("JTAG bridge ready!\n");
 

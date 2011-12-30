@@ -26,6 +26,7 @@
 #include "usb.h"  // libusb header
 
 #include "cable_usbblaster.h"
+#include "utilities.h"
 #include "errcodes.h"
 
 #define debug(...) //fprintf(stderr, __VA_ARGS__ )
@@ -34,7 +35,7 @@ jtag_cable_t usbblaster_cable_driver = {
     .name = "usbblaster",
     .inout_func = cable_usbblaster_inout,
     .out_func = cable_usbblaster_out,
-    .init_func =cable_usbblaster_init ,
+    .init_func = cable_usbblaster_init ,
     .opt_func = cable_usbblaster_opt,
     .bit_out_func = cable_common_write_bit,
     .bit_inout_func = cable_common_read_write_bit,
@@ -79,6 +80,11 @@ static usb_dev_handle *h_device;
 static char data_out_scratchpad[USBBLASTER_MAX_WRITE+1];
 #define USBBLASTER_MAX_READ  62
 static char data_in_scratchpad[USBBLASTER_MAX_READ+2];
+
+// Flag used to avoid unnecessary transfers
+// Since clock is lowered if high (and never the other way around),
+// 1 is a safe default value.
+static unsigned char clock_is_high = 1;
 
 int cable_usbblaster_open_cable(void);
 void cable_usbblaster_close_cable(void);
@@ -248,6 +254,15 @@ int cable_usbblaster_out(uint8_t value)
     err |= APP_ERR_USB;
   }
 
+  if(value & TCLK_BIT)
+    {
+      clock_is_high = 1;
+    }
+  else
+    {
+      clock_is_high = 0;
+    }
+
   return err;
 }
 
@@ -284,6 +299,14 @@ int cable_usbblaster_inout(uint8_t value, uint8_t *in_bit)
     return APP_ERR_USB;
   }
 
+  if(value & TCLK_BIT)
+    {
+      clock_is_high = 1;
+    }
+  else
+    {
+      clock_is_high = 0;
+    }
 
   // receive the response
   // Sometimes, we do a read but just get the useless 0x31,0x60 chars...
@@ -339,7 +362,10 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
   }
 
   // Bitbang functions leave clock high.  USBBlaster assumes clock low at the start of a burst.
-  err |= cable_usbblaster_out(0);  // Lower the clock.
+  if(clock_is_high)
+    {
+      err |= cable_usbblaster_out(0);  // Lower the clock.
+    }
 
   // Set leftover bits
   leftover_bits = (stream[bytes_to_transfer>>2] >> ((bytes_to_transfer & 0x3) * 8)) & 0xFF;
@@ -376,6 +402,8 @@ int cable_usbblaster_write_stream(uint32_t *stream, int len_bits, int set_last_b
       bytes_remaining -= bytes_this_xfer;
       xfer_ptr += bytes_this_xfer;
     }
+
+  clock_is_high = 0;
 
   // if we have a number of bits not divisible by 8, or we need to set TMS...
   if(leftover_bit_length != 0) {
@@ -418,8 +446,11 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
   }
 
   // Bitbang functions leave clock high.  USBBlaster assumes clock low at the start of a burst.
-  // Lower the clock.
-  retval |= cable_usbblaster_out(0);
+  if(clock_is_high)
+    {
+      // Lower the clock.
+      retval |= cable_usbblaster_out(0);
+    }
 
   // Zero the input, since we add new data by logical-OR
   for(i = 0; i < (len_bits/32); i++)  instream[i] = 0;
@@ -495,6 +526,8 @@ int cable_usbblaster_read_stream(uint32_t *outstream, uint32_t *instream, int le
       xfer_ptr += bytes_this_xfer;
     }
 
+  clock_is_high = 0;
+
   // if we have a number of bits not divisible by 8
   if(leftover_bit_length != 0) {
     debug("Doing leftovers: (0x%X, %d, %d)\n", leftover_bits, leftover_bit_length, set_last_bit);
@@ -546,6 +579,9 @@ int cable_usbblaster_opt(int c, char *str)
 
 int cable_usbblaster_open_cable(void)
 {
+  int if_not_claimed = 1;
+  timeout_timer timer;
+
   // open the device
   h_device = usb_open(usbblaster_device);
   if (h_device == NULL){
@@ -563,8 +599,23 @@ int cable_usbblaster_open_cable(void)
   }
 
   // wait until device is ready
-  // *** TODO: add timeout
-  while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+  if ( create_timer(&timer) )
+    {
+      fprintf(stderr, "Failed to create timer\n");
+      // fall back to infinite wait
+      while (usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber));
+    }
+  else
+    {
+      while (if_not_claimed && !timedout(&timer) )
+	if_not_claimed = usb_claim_interface(h_device, usbblaster_device->config->interface->altsetting->bInterfaceNumber);
+
+      if ( timedout(&timer) )
+	{
+	  fprintf(stderr, "Claiming interface timed out...\n");
+	  return APP_ERR_USB;
+	}
+    }
 
   return APP_ERR_NONE;
 }

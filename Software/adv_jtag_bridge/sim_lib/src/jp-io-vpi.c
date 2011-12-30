@@ -245,7 +245,7 @@ int init_sock(char *xx)
   vpi_get_value(sock, &value);
 
   addr.sin_family = AF_INET;
-  addr.sin_port = atoi(value.value.str);
+  addr.sin_port = htons((uint16_t)atoi(value.value.str));
   addr.sin_addr.s_addr = INADDR_ANY;
   memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 

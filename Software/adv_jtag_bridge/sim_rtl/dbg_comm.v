@@ -43,6 +43,9 @@
 // CVS Revision History
 //
 // $Log: dbg_comm.v,v $
+// Revision 1.4  2011-10-28 01:13:26  natey
+// Ran through dos2unix.
+//
 // Revision 1.3  2009-05-17 20:55:57  Nathan
 // Changed email address to opencores.org
 //

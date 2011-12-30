@@ -201,7 +201,7 @@ int cable_vpi_init()
   }
 
   addr.sin_family = AF_INET;
-  addr.sin_port = vpi_port;
+  addr.sin_port = htons(vpi_port);
   addr.sin_addr = *((struct in_addr *)he->h_addr);
   memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 

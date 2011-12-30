@@ -101,7 +101,7 @@ void hwp_set_in_use(unsigned int wp, unsigned char inuse);
 /* Public API                                               */
 /*----------------------------------------------------------*/
 
-void hwp_init(int portNum)
+int hwp_init(int portNum)
 {
   int status;
   struct addrinfo hints;
@@ -141,111 +141,113 @@ void hwp_init(int portNum)
       debug("HWP %i is %s\n", i, hwp_in_use[i] ? "absent":"present");
     }
 
-  if(status > 0)
+  if(status <= 0)
     {
-      fprintf(stderr, "HWP server initializing with %i watchpoints available\n", status);
+      fprintf(stderr, "No watchpoint hardware found, HWP server not starting\n");
+      return 0;
     }
   else
     {
-      fprintf(stderr, "No watchpoint hardware found, HWP server not starting\n");
+      fprintf(stderr, "HWP server initializing with %i watchpoints available\n", status);
+
+      /* We have watchpoint hardware.  Initialize the server. */
+      hwp_server_fd      = -1;
+      hwp_client_fd      = -1;
+      hwp_portnum = portNum;
+      
+      memset(portnum, '\0', sizeof(portnum));
+      snprintf(portnum, 5, "%i", portNum);
+      
+      /* Get the address info for the local host */
+      memset(&hints, 0, sizeof hints); // make sure the struct is empty
+      hints.ai_family = AF_UNSPEC;     // don't care IPv4 or IPv6
+      hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
+      hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
+      
+      if ((status = getaddrinfo(NULL, portnum, &hints, &servinfo)) != 0) {
+	fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+	return 0;
+      }
+      
+      
+      /* *** TODO: Select the appropriate servinfo in the linked list
+       * For now, we just use the first entry in servinfo.
+       struct addrinfo *servinfo, *p;
+       for(p = servinfo;p != NULL; p = p->ai_next) {
+       if (p->ai_family == AF_INET) { // IPv4
+       } else { // IPv6
+       }
+       }
+      */
+      
+      
+      /* Save the IP address, for convenience (different fields in IPv4 and IPv6) */
+      if (servinfo->ai_family == AF_INET) { // IPv4
+	struct sockaddr_in *ipv4 = (struct sockaddr_in *)servinfo->ai_addr;
+	addr = &(ipv4->sin_addr);
+	hwp_ipver = "IPv4";
+      } else { // IPv6
+	struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)servinfo->ai_addr;
+	addr = &(ipv6->sin6_addr);
+	hwp_ipver = "IPv6";
+      }
+      
+      /* convert the IP to a string */
+      inet_ntop(servinfo->ai_family, addr, hwp_ipstr, sizeof(hwp_ipstr));
+      
+      /* Find out what our name is, save for convenience */
+      if (gethostname (hwp_hostname, sizeof(hwp_hostname)) < 0)
+	{
+	  fprintf (stderr, "Warning: Unable to get hostname for HWP server: %s\n", strerror(errno));
+	  hwp_hostname[0] = '\0';  /* This is not a fatal error. */
+	}
+      
+      /* Create the socket */
+      hwp_server_fd = socket (servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+      if (hwp_server_fd < 0)
+	{
+	  fprintf (stderr, "Error: HWP could not create server socket: %s\n", strerror(errno));
+	  return 0;
+	}
+      
+      /* Set this socket to reuse its address. */
+      optval = 1;
+      if (setsockopt(hwp_server_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (optval)) == -1)
+	{
+	  fprintf (stderr, "Cannot set SO_REUSEADDR option on server socket %d: %s\n", hwp_server_fd, strerror(errno));
+	  hwp_server_close();
+	  return 0;
+	}
+      
+      /* Bind the socket to the local address */
+      if (bind (hwp_server_fd, servinfo->ai_addr, servinfo->ai_addrlen) < 0)
+	{
+	  fprintf (stderr, "Error: Unable to bind HWP server socket %d to port %d: %s\n", hwp_server_fd, portNum, strerror(errno));
+	  hwp_server_close();
+	  return 0;
+	}
+      
+      /* Set us up as a server, with a maximum backlog of 1 connection */
+      if (listen (hwp_server_fd, 1) < 0)
+	{
+	  fprintf (stderr, "Warning: Unable to set HWP backlog on server socket %d to %d: %s\n", hwp_server_fd, 1, strerror(errno));
+	  hwp_server_close();
+	  return 0;
+	}
+      
+      fprintf(stderr, "HWP server listening on host %s (%s), port %i, address family %s\n", 
+	      hwp_hostname, hwp_ipstr, hwp_portnum, hwp_ipver);
+      
+      /* Register for stall/unstall events from the target monitor thread. Also creates pipe
+       * for sending stall/unstall command to the target monitor, unused by us. */
+      if(0 > register_with_monitor_thread(hwp_pipe_fds)) {  // pipe_fds[0] is for writing to monitor, [1] is to read from it
+	fprintf(stderr, "HWP server failed to register with monitor thread, exiting");
+	hwp_server_close();
+	return 0;
+      }
     }
 
-  /* We have watchpoint hardware.  Initialize the server. */
-  hwp_server_fd      = -1;
-  hwp_client_fd      = -1;
-  hwp_portnum = portNum;
-
-  memset(portnum, '\0', sizeof(portnum));
-  snprintf(portnum, 5, "%i", portNum);
-
-  /* Get the address info for the local host */
-  memset(&hints, 0, sizeof hints); // make sure the struct is empty
-  hints.ai_family = AF_UNSPEC;     // don't care IPv4 or IPv6
-  hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
-  hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
-  
-  if ((status = getaddrinfo(NULL, portnum, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-    return;
-  }
-
-
-  /* *** TODO: Select the appropriate servinfo in the linked list
-   * For now, we just use the first entry in servinfo.
-     struct addrinfo *servinfo, *p;
-     for(p = servinfo;p != NULL; p = p->ai_next) {
-     if (p->ai_family == AF_INET) { // IPv4
-     } else { // IPv6
-     }
-     }
-  */
-
-
-  /* Save the IP address, for convenience (different fields in IPv4 and IPv6) */
-  if (servinfo->ai_family == AF_INET) { // IPv4
-    struct sockaddr_in *ipv4 = (struct sockaddr_in *)servinfo->ai_addr;
-    addr = &(ipv4->sin_addr);
-    hwp_ipver = "IPv4";
-  } else { // IPv6
-    struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)servinfo->ai_addr;
-    addr = &(ipv6->sin6_addr);
-    hwp_ipver = "IPv6";
-  }
-
-  /* convert the IP to a string */
-  inet_ntop(servinfo->ai_family, addr, hwp_ipstr, sizeof(hwp_ipstr));
-
-  /* Find out what our name is, save for convenience */
-  if (gethostname (hwp_hostname, sizeof(hwp_hostname)) < 0)
-    {
-      fprintf (stderr, "Warning: Unable to get hostname for HWP server: %s\n", strerror(errno));
-      hwp_hostname[0] = '\0';  /* This is not a fatal error. */
-    }
-
-  /* Create the socket */
-  hwp_server_fd = socket (servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-  if (hwp_server_fd < 0)
-    {
-      fprintf (stderr, "Error: HWP could not create server socket: %s\n", strerror(errno));
-      return;
-    }
-
-  /* Set this socket to reuse its address. */
-  optval = 1;
-  if (setsockopt(hwp_server_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof (optval)) == -1)
-    {
-      fprintf (stderr, "Cannot set SO_REUSEADDR option on server socket %d: %s\n", hwp_server_fd, strerror(errno));
-      hwp_server_close();
-      return;
-    }
-
-  /* Bind the socket to the local address */
-  if (bind (hwp_server_fd, servinfo->ai_addr, servinfo->ai_addrlen) < 0)
-    {
-      fprintf (stderr, "Error: Unable to bind HWP server socket %d to port %d: %s\n", hwp_server_fd, portNum, strerror(errno));
-      hwp_server_close();
-      return;
-    }
-
-  /* Set us up as a server, with a maximum backlog of 1 connection */
-  if (listen (hwp_server_fd, 1) < 0)
-    {
-      fprintf (stderr, "Warning: Unable to set HWP backlog on server socket %d to %d: %s\n", hwp_server_fd, 1, strerror(errno));
-      hwp_server_close();
-      return;
-    }
-
-  fprintf(stderr, "HWP server listening on host %s (%s), port %i, address family %s\n", 
-	  hwp_hostname, hwp_ipstr, hwp_portnum, hwp_ipver);
-
-  /* Register for stall/unstall events from the target monitor thread. Also creates pipe
-   * for sending stall/unstall command to the target monitor, unused by us. */
-  if(0 > register_with_monitor_thread(hwp_pipe_fds)) {  // pipe_fds[0] is for writing to monitor, [1] is to read from it
-    fprintf(stderr, "HWP server failed to register with monitor thread, exiting");
-    hwp_server_close();
-    return;
-  }
-
+  return 1;
 }
 
 

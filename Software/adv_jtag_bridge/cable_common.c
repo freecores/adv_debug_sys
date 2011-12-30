@@ -65,6 +65,7 @@ void cable_setup(void)
 
 #ifdef __SUPPORT_PARALLEL_CABLES__
   jtag_cables[i++] = cable_xpc3_get_driver();
+  jtag_cables[i++] = cable_bb2_get_driver();
   jtag_cables[i++] = cable_xess_get_driver();
 #endif
 
