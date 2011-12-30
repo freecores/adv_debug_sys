@@ -32,24 +32,6 @@
  `define OR1200_DU_DWCR_COUNT	15:0
 --- /cygdrive/c/Projects/Bennu/Hardware/or1200v1/rtl/verilog/or1200_top.v	2010-08-25 23:25:40.000000000 -0500
 +++ ./or1200_top.v	2010-06-12 16:59:02.000000000 -0500
-@@ -43,7 +43,10 @@
- //
- // CVS Revision History
- //
--// $Log: or1200v1_hwbkpt.patch,v $
--// Revision 1.1  2010-08-27 02:43:07  Nathan
--// Moved patches for third-party software to a separate, dedicated directory structure.
--//
-+// $Log: or1200v1_hwbkpt.patch,v $
-+// Revision 1.1  2010-08-27 02:43:07  Nathan
-+// Moved patches for third-party software to a separate, dedicated directory structure.
-+//
-+// Revision 1.13  2004/06/08 18:17:36  lampret
-+// Non-functional changes. Coding style fixes.
-+//
- // Revision 1.12  2004/04/05 08:29:57  lampret
- // Merged branch_qmem into main tree.
- //
 @@ -933,6 +936,7 @@ or1200_du or1200_du(
  	.dcpu_cycstb_i(dcpu_cycstb_cpu),
  	.dcpu_we_i(dcpu_we_cpu),
