@@ -43,6 +43,10 @@
 // CVS Revision History
 //
 // $Log: tap_top.v,v $
+// Revision 1.6  2011-10-24 02:18:58  natey
+// Removed '#1' delays, which were a holdover from the original version. Ran
+// through dos2unix.
+//
 // Revision 1.5  2009-06-16 02:53:58  Nathan
 // Changed some signal names for better consistency between different hardware modules. Removed stale CVS log/comments.
 //
@@ -362,13 +366,13 @@ wire                  instruction_tdo;
 always @ (posedge tck_pad_i or negedge trstn_pad_i)
 begin
   if(trstn_pad_i == 0)
-    jtag_ir[`IR_LENGTH-1:0] <= #1 `IR_LENGTH'b0;
+    jtag_ir[`IR_LENGTH-1:0] <= `IR_LENGTH'b0;
   else if (test_logic_reset == 1)
-	jtag_ir[`IR_LENGTH-1:0] <= #1 `IR_LENGTH'b0;
+	jtag_ir[`IR_LENGTH-1:0] <= `IR_LENGTH'b0;
   else if(capture_ir)
-    jtag_ir <= #1 4'b0101;          // This value is fixed for easier fault detection
+    jtag_ir <= 4'b0101;          // This value is fixed for easier fault detection
   else if(shift_ir)
-    jtag_ir[`IR_LENGTH-1:0] <= #1 {tdi_pad_i, jtag_ir[`IR_LENGTH-1:1]};
+    jtag_ir[`IR_LENGTH-1:0] <= {tdi_pad_i, jtag_ir[`IR_LENGTH-1:1]};
 end
 
 assign instruction_tdo = jtag_ir[0];  // This is latched on a negative TCK edge after the output MUX
@@ -378,11 +382,11 @@ assign instruction_tdo = jtag_ir[0];  // This is latched on a negative TCK edge 
 always @ (negedge tck_pad_i or negedge trstn_pad_i)
 begin
   if(trstn_pad_i == 0)
-    latched_jtag_ir <=#1 `IDCODE;   // IDCODE selected after reset
+    latched_jtag_ir <= `IDCODE;   // IDCODE selected after reset
   else if (test_logic_reset)
-    latched_jtag_ir <=#1 `IDCODE;   // IDCODE selected after reset
+    latched_jtag_ir <= `IDCODE;   // IDCODE selected after reset
   else if(update_ir)
-    latched_jtag_ir <=#1 jtag_ir;
+    latched_jtag_ir <= jtag_ir;
 end
 
 /**********************************************************************************
@@ -404,13 +408,13 @@ wire        idcode_tdo;
 always @ (posedge tck_pad_i or negedge trstn_pad_i)
 begin
   if(trstn_pad_i == 0)
-    idcode_reg <=#1 `IDCODE_VALUE;   // IDCODE selected after reset
+    idcode_reg <= `IDCODE_VALUE;   // IDCODE selected after reset
   else if (test_logic_reset)
-    idcode_reg <=#1 `IDCODE_VALUE;   // IDCODE selected after reset
+    idcode_reg <= `IDCODE_VALUE;   // IDCODE selected after reset
   else if(idcode_select & capture_dr)
-    idcode_reg <= #1 `IDCODE_VALUE;
+    idcode_reg <=  `IDCODE_VALUE;
   else if(idcode_select & shift_dr)
-    idcode_reg <= #1 {tdi_pad_i, idcode_reg[31:1]};
+    idcode_reg <=  {tdi_pad_i, idcode_reg[31:1]};
 
 end
 
@@ -434,13 +438,13 @@ reg   bypass_reg;  // This is a 1-bit register
 always @ (posedge tck_pad_i or negedge trstn_pad_i)
 begin
   if (trstn_pad_i == 0)
-     bypass_reg <= #1 1'b0;
+     bypass_reg <=  1'b0;
   else if (test_logic_reset == 1)
-     bypass_reg <= #1 1'b0;
+     bypass_reg <=  1'b0;
   else if (bypass_select & capture_dr)
-    bypass_reg<=#1 1'b0;
+    bypass_reg<= 1'b0;
   else if(bypass_select & shift_dr)
-    bypass_reg<=#1 tdi_pad_i;
+    bypass_reg<= tdi_pad_i;
 end
 
 assign bypassed_tdo = bypass_reg;   // This is latched on a negative TCK edge after the output MUX
@@ -515,7 +519,7 @@ end
 // Tristate control for tdo_pad_o pin
 always @ (posedge tck_pad_i)
 begin
-  tdo_padoe_o <= #1 shift_ir | shift_dr;
+  tdo_padoe_o <= shift_ir | shift_dr;
 end
 /**********************************************************************************
 *                                                                                 *

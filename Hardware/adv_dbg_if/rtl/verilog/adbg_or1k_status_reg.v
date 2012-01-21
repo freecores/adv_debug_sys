@@ -7,12 +7,13 @@
 ////                                                              ////
 ////  Author(s):                                                  ////
 ////       Igor Mohor (igorm@opencores.org)                       ////
+////       Nathan Yawn (nyawn@opencores.org)                      ////
 ////                                                              ////
 ////                                                              ////
 ////                                                              ////
 //////////////////////////////////////////////////////////////////////
 ////                                                              ////
-//// Copyright (C) 2000 - 2010 Authors                            ////
+//// Copyright (C) 2000 - 2011 Authors                            ////
 ////                                                              ////
 //// This source file may be used and distributed without         ////
 //// restriction provided that this copyright statement is not    ////
@@ -40,6 +41,10 @@
 // CVS Revision History
 //
 // $Log: adbg_or1k_status_reg.v,v $
+// Revision 1.3  2011-10-24 02:25:11  natey
+// Removed extraneous '#1' delays, which were a holdover from the original
+// versions in the previous dbg_if core.
+//
 // Revision 1.2  2010-01-10 22:54:10  Nathan
 // Update copyright dates
 //
@@ -102,11 +107,11 @@ module adbg_or1k_status_reg  (
    always @ (posedge cpu_clk_i or posedge rst_i)
      begin
 	if(rst_i)
-	  stall_bp <= #1 1'b0;
+	  stall_bp <= 1'b0;
 	else if(bp_i)
-	  stall_bp <= #1 1'b1;
+	  stall_bp <= 1'b1;
 	else if(stall_reg_cpu)
-	  stall_bp <= #1 1'b0;
+	  stall_bp <= 1'b0;
      end
 
 
@@ -115,13 +120,13 @@ module adbg_or1k_status_reg  (
      begin
 	if (rst_i)
 	  begin
-	     stall_bp_csff <= #1 1'b0;
-	     stall_bp_tck  <= #1 1'b0;
+	     stall_bp_csff <= 1'b0;
+	     stall_bp_tck  <= 1'b0;
 	  end
 	else
 	  begin
-	     stall_bp_csff <= #1 stall_bp;
-	     stall_bp_tck  <= #1 stall_bp_csff;
+	     stall_bp_csff <= stall_bp;
+	     stall_bp_tck  <= stall_bp_csff;
 	  end
      end
 
@@ -130,13 +135,13 @@ module adbg_or1k_status_reg  (
      begin
 	if (rst_i)
 	  begin
-	     stall_reg_csff <= #1 1'b0;
-	     stall_reg_cpu  <= #1 1'b0;
+	     stall_reg_csff <= 1'b0;
+	     stall_reg_cpu  <= 1'b0;
 	  end
 	else
 	  begin
-	     stall_reg_csff <= #1 stall_reg;
-	     stall_reg_cpu  <= #1 stall_reg_csff;
+	     stall_reg_csff <= stall_reg;
+	     stall_reg_cpu  <= stall_reg_csff;
 	  end
      end
 
@@ -152,11 +157,11 @@ module adbg_or1k_status_reg  (
    always @ (posedge tck_i or posedge rst_i)
      begin
 	if (rst_i)
-	  stall_reg <= #1 1'b0;
+	  stall_reg <= 1'b0;
 	else if (stall_bp_tck)
-	  stall_reg <= #1 1'b1;
+	  stall_reg <= 1'b1;
 	else if (we_i)
-	  stall_reg <= #1 data_i[0];
+	  stall_reg <= data_i[0];
      end
 
 
@@ -164,9 +169,9 @@ module adbg_or1k_status_reg  (
    always @ (posedge tck_i or posedge rst_i)
      begin
 	if (rst_i)
-	  cpu_reset  <= #1 1'b0;
+	  cpu_reset  <= 1'b0;
 	else if(we_i)
-	  cpu_reset  <= #1 data_i[1];
+	  cpu_reset  <= data_i[1];
      end
 
 
@@ -175,13 +180,13 @@ module adbg_or1k_status_reg  (
      begin
 	if (rst_i)
 	  begin
-	     cpu_reset_csff      <= #1 1'b0; 
-	     cpu_rst_o           <= #1 1'b0; 
+	     cpu_reset_csff      <= 1'b0; 
+	     cpu_rst_o           <= 1'b0; 
 	  end
 	else
 	  begin
-	     cpu_reset_csff      <= #1 cpu_reset;
-	     cpu_rst_o           <= #1 cpu_reset_csff;
+	     cpu_reset_csff      <= cpu_reset;
+	     cpu_rst_o           <= cpu_reset_csff;
 	  end
      end
 

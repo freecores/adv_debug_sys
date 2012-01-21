@@ -26,6 +26,10 @@
 // CVS Revision History
 //
 // $Log: adbg_crc32.v,v $
+// Revision 1.3  2011-10-24 02:25:11  natey
+// Removed extraneous '#1' delays, which were a holdover from the original
+// versions in the previous dbg_if core.
+//
 // Revision 1.2  2010-01-10 22:54:10  Nathan
 // Update copyright dates
 //
@@ -100,13 +104,13 @@ assign new_crc[31] =           data ^ crc[0];
 always @ (posedge clk or posedge rst)
 begin
   if(rst)
-    crc[31:0] <= #1 32'hffffffff;
+    crc[31:0] <= 32'hffffffff;
   else if(clr)
-    crc[31:0] <= #1 32'hffffffff;
+    crc[31:0] <= 32'hffffffff;
   else if(enable)
-    crc[31:0] <= #1 new_crc;
+    crc[31:0] <= new_crc;
   else if (shift)
-    crc[31:0] <= #1 {1'b0, crc[31:1]};
+    crc[31:0] <= {1'b0, crc[31:1]};
 end
 
 
